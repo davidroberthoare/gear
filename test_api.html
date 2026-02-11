@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <h1>Gear Kiosk API Test</h1>
+    
+    <h2>Test 1: Create Teacher</h2>
+    <button id="testCreate">Create Teacher (TestUser/1234)</button>
+    <pre id="createResult"></pre>
+    
+    <h2>Test 2: Login Teacher</h2>
+    <button id="testLogin">Login (TestUser/1234)</button>
+    <pre id="loginResult"></pre>
+    
+    <h2>Console Log</h2>
+    <pre id="console"></pre>
+    
+    <script>
+        function log(msg) {
+            $('#console').append(msg + '\n');
+            console.log(msg);
+        }
+        
+        $('#testCreate').click(function() {
+            log('Creating teacher...');
+            $.ajax({
+                url: 'api.php',
+                method: 'POST',
+                data: JSON.stringify({
+                    action: 'create_teacher',
+                    username: 'TestUser',
+                    pin: '1234'
+                }),
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#createResult').text(JSON.stringify(response, null, 2));
+                    log('Create success: ' + JSON.stringify(response));
+                },
+                error: function(xhr, status, error) {
+                    $('#createResult').text('Error: ' + error + '\n' + xhr.responseText);
+                    log('Create error: ' + error);
+                }
+            });
+        });
+        
+        $('#testLogin').click(function() {
+            log('Logging in...');
+            $.ajax({
+                url: 'api.php',
+                method: 'POST',
+                data: JSON.stringify({
+                    action: 'teacher_login',
+                    username: 'TestUser',
+                    pin: '1234'
+                }),
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#loginResult').text(JSON.stringify(response, null, 2));
+                    log('Login success: ' + JSON.stringify(response));
+                },
+                error: function(xhr, status, error) {
+                    $('#loginResult').text('Error: ' + error + '\n' + xhr.responseText);
+                    log('Login error: ' + error);
+                }
+            });
+        });
+        
+        log('Page loaded, jQuery version: ' + $.fn.jquery);
+    </script>
+</body>
+</html>

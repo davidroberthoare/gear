@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gear Kiosk</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo-icon">
+                    <i data-lucide="camera"></i>
+                </div>
+                <h1>Gear Kiosk</h1>
+                <p>Multi-Classroom Equipment Management</p>
+            </div>
+            
+            <div class="login-form">
+                <h2 id="loginTitle">Teacher Login</h2>
+                <div class="input-group">
+                    <input type="text" id="loginUsername" placeholder="Username" class="login-input">
+                </div>
+                <div class="input-group">
+                    <input type="password" id="loginPin" placeholder="5-Digit PIN" maxlength="5" class="login-input">
+                </div>
+                <p id="loginError" class="error-message" style="display: none;"></p>
+                <button id="loginBtn" class="btn-login">Login</button>
+                <div class="login-divider">
+                    <span>or</span>
+                </div>
+                <button id="createAccountBtn" class="btn-create-account">Create New Classroom</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="app-container" id="appContainer" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <i data-lucide="camera"></i>
+                </div>
+                <div class="logo-text" id="logoText">
+                    <h1>Gear Kiosk</h1>
+                    <p id="teacherName">Cloud Session Active</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="verifyAllBtn" class="btn-verify-all" style="display: none;">
+                    Verify All Pending
+                </button>
+                <button id="logoutBtn" class="btn-icon" title="Logout">
+                    <i data-lucide="log-out"></i>
+                </button>
+                <button id="adminBtn" class="btn-icon">
+                    <i data-lucide="settings"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view">
+                <div class="dashboard-grid">
+                    <!-- Inventory Section -->
+                    <section class="inventory-section">
+                        <div class="section-header">
+                            <h2>Current Inventory</h2>
+                            <div class="status-badges">
+                                <div class="badge badge-available">
+                                    <span id="availableCount">0</span> Available
+                                </div>
+                                <div class="badge badge-out">
+                                    <span id="outCount">0</span> Out
+                                </div>
+                            </div>
+                        </div>
+                        <div class="items-grid" id="itemsGrid"></div>
+                    </section>
+
+                    <!-- Activity Section -->
+                    <section class="activity-section">
+                        <div class="activity-log">
+                            <div class="section-header">
+                                <h2>Recent Activity</h2>
+                            </div>
+                            <div class="log-container" id="logContainer">
+                                <div class="log-empty">No logs yet</div>
+                            </div>
+                        </div>
+                        
+                        <div class="teacher-tip">
+                            <h3>Teacher Quick Tip</h3>
+                            <p>"Always ensure students check the battery level before returning cameras to the cabinet."</p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Admin Panel View -->
+            <div id="adminView" class="view" style="display: none;">
+                <div class="admin-header">
+                    <div>
+                        <h2>Admin Panel</h2>
+                        <p>Manage equipment and student access</p>
+                    </div>
+                    <div class="admin-actions">
+                        <button id="printAllBtn" class="btn-print-all">
+                            <i data-lucide="printer"></i> Print All Labels
+                        </button>
+                        <button id="closeAdminBtn" class="btn-icon">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-grid">
+                    <!-- Inventory Management -->
+                    <section class="admin-section">
+                        <h3>
+                            <i data-lucide="camera"></i> Inventory
+                        </h3>
+                        <div class="admin-form">
+                            <input type="text" id="newItemId" placeholder="ID" class="input-small">
+                            <input type="text" id="newItemName" placeholder="Item Name" class="input-flex">
+                            <button id="addItemBtn" class="btn-add">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                        <div class="admin-form" style="margin-top: 8px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="itemTemporary">
+                                <span>One-time item (auto-remove after return)</span>
+                            </label>
+                        </div>
+                        <div class="admin-list" id="adminItemsList"></div>
+                    </section>
+
+                    <!-- Student Management -->
+                    <section class="admin-section">
+                        <h3>
+                            <i data-lucide="user"></i> Student Roster
+                        </h3>
+                        <div class="admin-form">
+                            <input type="text" id="newStudentName" placeholder="Full Name" class="input-flex">
+                            <input type="text" id="newStudentPin" placeholder="5-Digit PIN" class="input-medium" maxlength="5">
+                            <button id="addStudentBtn" class="btn-add-student">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                        <div class="admin-form" style="margin-top: 8px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="studentTemporary">
+                                <span>One-time student (for single checkout)</span>
+                            </label>
+                        </div>
+                        <div class="admin-list" id="adminStudentsList"></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-icon" id="modalIcon">
+                <i data-lucide="qr-code"></i>
+            </div>
+            
+            <div class="modal-content">
+                <h2 id="modalTitle">Confirm ID</h2>
+                <p id="modalSubtitle">Enter your 4-digit code to continue</p>
+            </div>
+
+            <div class="modal-input-section">
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    maxlength="5" 
+                    placeholder="•••••" 
+                    class="pin-input"
+                >
+                
+                <p id="errorMessage" class="error-message" style="display: none;"></p>
+                
+                <button id="submitBtn" class="btn-submit">Submit Code</button>
+                
+                <button id="cancelBtn" class="btn-cancel">Cancel & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=2.0.2"></script>
+</body>
+</html>

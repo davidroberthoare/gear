@@ -1,0 +1,7 @@
+*.db
+*.code-workspace
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store

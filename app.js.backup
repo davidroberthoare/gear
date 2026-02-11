@@ -1,0 +1,401 @@
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc, addDoc, query } from 'firebase/firestore';
+import { Camera, User, CheckCircle, Lock, ShieldCheck, AlertCircle, Settings, Trash2, Plus, Printer, X, QrCode } from 'lucide-react';
+
+// Firebase configuration from environment
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'gear-kiosk-default';
+
+const App = () => {
+  const TEACHER_PIN = "0000";
+
+  // State
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // UI State
+  const [view, setView] = useState('dashboard');
+  const [activeItem, setActiveItem] = useState(null);
+  const [pinInput, setPinInput] = useState('');
+  const [error, setError] = useState('');
+  const [printQueue, setPrintQueue] = useState([]);
+
+  // Admin Form State
+  const [newItem, setNewItem] = useState({ id: '', name: '' });
+  const [newStudent, setNewStudent] = useState({ name: '', pin: '' });
+
+  // 1. Auth Initialization
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth failed", err);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Data Listeners (Firestore)
+  useEffect(() => {
+    if (!user) return;
+
+    const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
+    const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+    const logsRef = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+
+    const unsubItems = onSnapshot(itemsRef, (snap) => {
+      const data = snap.docs.map(d => ({ ...d.data(), firestoreId: d.id }));
+      setItems(data.sort((a, b) => a.id.localeCompare(b.id)));
+    }, (err) => console.error("Items sync error", err));
+
+    const unsubStudents = onSnapshot(studentsRef, (snap) => {
+      setStudents(snap.docs.map(d => d.data()));
+    }, (err) => console.error("Students sync error", err));
+
+    const unsubLogs = onSnapshot(logsRef, (snap) => {
+      const data = snap.docs.map(d => d.data());
+      const sorted = data.sort((a, b) => b.timestamp - a.timestamp);
+      setLogs(sorted.slice(0, 50));
+    }, (err) => console.error("Logs sync error", err));
+
+    return () => {
+      unsubItems();
+      unsubStudents();
+      unsubLogs();
+    };
+  }, [user]);
+
+  // Handle Enter Key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        if (view === 'pin_entry') handleSubmitPin();
+        if (view === 'teacher_auth') handleTeacherVerify();
+        if (view === 'teacher_auth_all') handleConfirmAll();
+        if (view === 'admin_login') handleAdminLogin();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [view, pinInput, activeItem, students, items]);
+
+  const addLog = async (entry) => {
+    const logsRef = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+    await addDoc(logsRef, {
+      ...entry,
+      timestamp: Date.now(),
+      timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+  };
+
+  const handleScan = (item) => {
+    setActiveItem(item);
+    setError('');
+    setPinInput('');
+    setView(item.status === 'pending' ? 'teacher_auth' : 'pin_entry');
+  };
+
+  const handleSubmitPin = async () => {
+    const student = students.find(s => s.pin === pinInput);
+    if (!student) { setError('Invalid PIN'); return; }
+
+    const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', activeItem.firestoreId);
+    
+    if (activeItem.status === 'available') {
+      await updateDoc(itemRef, { status: 'out', currentUser: student.name });
+      await addLog({ item: activeItem.id, student: student.name, action: 'Checkout' });
+    } else if (activeItem.status === 'out') {
+      await updateDoc(itemRef, { status: 'pending', currentUser: student.name });
+      await addLog({ item: activeItem.id, student: student.name, action: 'Returned (Pending)' });
+    }
+    reset();
+  };
+
+  const handleTeacherVerify = async () => {
+    if (pinInput === TEACHER_PIN) {
+      const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', activeItem.firestoreId);
+      await updateDoc(itemRef, { status: 'available', currentUser: null });
+      await addLog({ item: activeItem.id, student: 'Teacher', action: 'Verified Return' });
+      reset();
+    } else { setError('Invalid Teacher PIN'); }
+  };
+
+  const handleConfirmAll = async () => {
+    if (pinInput === TEACHER_PIN) {
+      const pendingItems = items.filter(i => i.status === 'pending');
+      for (const item of pendingItems) {
+        const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', item.firestoreId);
+        await updateDoc(itemRef, { status: 'available', currentUser: null });
+        await addLog({ item: item.id, student: 'Teacher', action: 'Verified Return (Bulk)' });
+      }
+      reset();
+    } else { setError('Invalid Teacher PIN'); }
+  };
+
+  const handleAdminLogin = () => {
+    if (pinInput === TEACHER_PIN) { setView('admin_panel'); setPinInput(''); setError(''); }
+    else { setError('Access Denied'); }
+  };
+
+  const reset = () => {
+    setView('dashboard');
+    setActiveItem(null);
+    setPinInput('');
+    setError('');
+  };
+
+  // Admin Actions
+  const addItem = async () => {
+    if (newItem.id && newItem.name) {
+      const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
+      await addDoc(itemsRef, { ...newItem, status: 'available', currentUser: null });
+      setNewItem({ id: '', name: '' });
+    }
+  };
+
+  const deleteItem = async (fid) => {
+    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', fid));
+  };
+
+  const addStudent = async () => {
+    if (newStudent.name && newStudent.pin) {
+      const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+      await addDoc(studentsRef, newStudent);
+      setNewStudent({ name: '', pin: '' });
+    }
+  };
+
+  const printSpecific = (item) => {
+    setPrintQueue([item]);
+    setTimeout(() => { window.print(); setPrintQueue([]); }, 100);
+  };
+
+  const printAll = () => {
+    setPrintQueue(items);
+    setTimeout(() => { window.print(); setPrintQueue([]); }, 100);
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100 font-bold text-slate-500">Connecting to Cloud...</div>;
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans flex flex-col">
+      
+      {/* Print View */}
+      <div className="hidden print:block bg-white p-0">
+        <div className="grid grid-cols-3 gap-4 p-4">
+          {printQueue.map(item => (
+            <div key={item.id} className="border-2 border-black p-4 flex flex-col items-center text-center space-y-1 break-inside-avoid h-48 justify-center">
+              <div className="bg-slate-100 w-24 h-24 flex items-center justify-center border border-slate-300">
+                <QrCode size={64} strokeWidth={1} />
+              </div>
+              <div className="font-mono font-bold text-2xl">{item.id}</div>
+              <div className="text-sm uppercase font-bold border-t border-black w-full pt-1 truncate">{item.name}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <header className="bg-white border-b p-6 flex justify-between items-center shadow-sm print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 p-2 rounded-lg text-white"><Camera size={28} /></div>
+          <div onClick={() => setView('dashboard')} className="cursor-pointer">
+            <h1 className="text-2xl font-black uppercase tracking-tight">Gear Kiosk</h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cloud Session Active</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {items.some(i => i.status === 'pending') && view === 'dashboard' && (
+            <button onClick={() => { setView('teacher_auth_all'); setPinInput(''); }}
+              className="bg-orange-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg shadow-orange-200 hover:scale-105 transition-transform">
+              Verify All Pending
+            </button>
+          )}
+          <button onClick={() => setView('admin_login')} className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+            <Settings size={24} />
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6 max-w-6xl mx-auto w-full print:hidden">
+        {view === 'dashboard' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section className="lg:col-span-2 space-y-4">
+              <div className="flex justify-between items-end">
+                <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Current Inventory</h2>
+                <div className="flex gap-2">
+                   <div className="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">{items.filter(i => i.status === 'available').length} Available</div>
+                   <div className="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">{items.filter(i => i.status === 'out').length} Out</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {items.map(item => (
+                  <button key={item.firestoreId} onClick={() => handleScan(item)}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all bg-white shadow-sm hover:shadow-md ${
+                      item.status === 'available' ? 'border-transparent hover:border-green-400' : 
+                      item.status === 'pending' ? 'border-orange-400 bg-orange-50 ring-4 ring-orange-100' : 'border-transparent opacity-80'
+                    }`}>
+                    <div className="font-mono text-[10px] font-bold text-slate-400">{item.id}</div>
+                    <div className="font-bold text-lg leading-tight mb-2">{item.name}</div>
+                    <div>
+                      {item.status === 'available' && <span className="text-green-600 text-[10px] font-black italic flex items-center gap-1"><CheckCircle size={12}/> READY</span>}
+                      {item.status === 'out' && <span className="text-blue-600 text-[10px] font-black italic flex items-center gap-1"><User size={12}/> {item.currentUser?.split(' ')[0]}</span>}
+                      {item.status === 'pending' && <span className="text-orange-600 text-[10px] font-black italic animate-pulse flex items-center gap-1"><AlertCircle size={12}/> CHECK-IN</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+            
+            <section className="flex flex-col gap-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col h-[450px]">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Recent Activity</h2>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                  {logs.length === 0 ? <div className="h-full flex items-center justify-center text-slate-300 text-sm italic">No logs yet</div> : 
+                    logs.map(log => (
+                      <div key={log.timestamp} className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <div className="flex justify-between items-start">
+                          <span className="font-bold text-xs">{log.student}</span>
+                          <span className="text-[9px] font-mono text-slate-400">{log.timeStr}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium uppercase mt-1">
+                          {log.action}: <span className="text-slate-800">{log.item}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-4 text-white shadow-lg">
+                 <h3 className="text-[10px] font-black opacity-60 uppercase mb-2">Teacher Quick Tip</h3>
+                 <p className="text-xs font-medium leading-relaxed italic">"Always ensure students check the battery level before returning cameras to the cabinet."</p>
+              </div>
+            </section>
+          </div>
+        ) : view === 'admin_panel' ? (
+          <div className="space-y-6">
+             <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm">
+              <div>
+                <h2 className="text-2xl font-black uppercase">Admin Panel</h2>
+                <p className="text-xs text-slate-400">Manage equipment and student access</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={printAll} className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-700">
+                  <Printer size={18} /> Print All Labels
+                </button>
+                <button onClick={reset} className="p-2 text-slate-400 hover:text-red-500"><X size={24} /></button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <section className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+                <h3 className="font-bold flex items-center gap-2"><Camera size={18} className="text-blue-600"/> Inventory</h3>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="ID" className="w-16 p-2 border rounded" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})} />
+                  <input type="text" placeholder="Item Name" className="flex-1 p-2 border rounded" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+                  <button onClick={addItem} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"><Plus/></button>
+                </div>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                  {items.map(item => (
+                    <div key={item.firestoreId} className="flex items-center justify-between p-2 bg-slate-50 rounded group border border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] font-bold bg-white px-2 py-1 rounded border shadow-sm">{item.id}</span>
+                        <span className="text-sm font-medium">{item.name}</span>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => printSpecific(item)} className="text-slate-400 hover:text-blue-600"><Printer size={14}/></button>
+                        <button onClick={() => deleteItem(item.firestoreId)} className="text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+                <h3 className="font-bold flex items-center gap-2"><User size={18} className="text-green-600"/> Student Roster</h3>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Full Name" className="flex-1 p-2 border rounded" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                  <input type="text" placeholder="4-Digit PIN" className="w-24 p-2 border rounded" value={newStudent.pin} onChange={e => setNewStudent({...newStudent, pin: e.target.value})} />
+                  <button onClick={addStudent} className="bg-green-600 text-white p-2 rounded hover:bg-green-700"><Plus/></button>
+                </div>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                  {students.map(s => (
+                    <div key={s.pin} className="p-2 bg-slate-50 rounded flex justify-between items-center border border-slate-100">
+                      <span className="text-sm font-medium">{s.name}</span>
+                      <span className="text-slate-300 font-mono text-[10px] bg-white px-2 py-1 rounded border">PIN: {s.pin}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        ) : null}
+      </main>
+
+      {/* Popups */}
+      {['pin_entry', 'teacher_auth', 'teacher_auth_all', 'admin_login'].includes(view) && (
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 z-50 print:hidden">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 text-center shadow-2xl space-y-8 animate-in zoom-in-95 duration-200">
+            <div className="mx-auto w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-800 shadow-inner">
+               {view === 'admin_login' ? <Lock size={32} /> : view.includes('teacher') ? <ShieldCheck size={32} className="text-orange-500"/> : <QrCode size={32} className="text-blue-600"/>}
+            </div>
+            
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter italic">
+                {view === 'admin_login' ? 'Admin Access' : view.includes('teacher') ? 'Teacher PIN' : 'Confirm ID'}
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                {view === 'pin_entry' ? `Preparing checkout for ${activeItem?.id}` : 'Enter your 4-digit code to continue'}
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <input 
+                type="password" 
+                maxLength={4} 
+                value={pinInput} 
+                onChange={e => {setPinInput(e.target.value); setError('');}} 
+                placeholder="••••" 
+                className="w-full text-center text-6xl tracking-[1rem] p-4 bg-slate-50 border-2 rounded-3xl outline-none focus:border-blue-500 transition-colors shadow-inner" 
+                autoFocus 
+              />
+              
+              {error && <p className="text-red-500 font-black text-sm uppercase animate-bounce">{error}</p>}
+              
+              <button 
+                onClick={() => { if(view === 'admin_login') handleAdminLogin(); else if(view === 'pin_entry') handleSubmitPin(); else if(view === 'teacher_auth') handleTeacherVerify(); else handleConfirmAll(); }}
+                className="w-full py-6 bg-slate-900 text-white rounded-[1.5rem] font-black text-xl uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl active:scale-95"
+              >
+                Submit Code
+              </button>
+              
+              <button onClick={reset} className="text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-slate-800">Cancel & Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
