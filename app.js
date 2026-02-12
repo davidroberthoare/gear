@@ -443,7 +443,7 @@ function showModal(type) {
     $modalIcon.removeClass('teacher admin');
     
     if (type === 'admin_login') {
-        $('#modalTitle').text('Admin Access');
+        $('#modalTitle').text('Teacher Access');
         $('#modalSubtitle').text('Enter your 5-digit code to continue');
         $modalIcon.addClass('admin');
         $modalIcon.html('<i data-lucide="lock"></i>');

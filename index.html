@@ -94,12 +94,11 @@
                                 <div class="log-empty">No logs yet</div>
                             </div>
                         </div>
-                        
-                        <div class="teacher-tip">
-                            <h3>Teacher Quick Tip</h3>
-                            <p>"Always ensure students check the battery level before returning cameras to the cabinet."</p>
-                        </div>
                     </section>
+                    <div class="teacher-tip">
+                            <h3>Teacher Quick Tip</h3>
+                            <p id="tipText">"Always ensure students check the battery level before returning cameras to the cabinet."</p>
+                        </div>
                 </div>
             </div>
 
@@ -107,7 +106,7 @@
             <div id="adminView" class="view" style="display: none;">
                 <div class="admin-header">
                     <div>
-                        <h2>Admin Panel</h2>
+                        <h2>Teacher Panel</h2>
                         <p>Manage equipment and student access</p>
                     </div>
                     <div class="admin-actions">
@@ -197,6 +196,63 @@
         </div>
     </div>
 
+    <script>
+        // Photography tips rotation
+        const photographyTips = [
+            "Check the battery level before returning your camera to the cabinet.",
+            "Format your SD card before starting a new project to avoid errors.",
+            "Use the rule of thirds: place your subject off-center for more dynamic compositions.",
+            "Natural light from a window often produces better results than overhead fluorescent lighting.",
+            "Always check your focus before and after taking important shots.",
+            "Take multiple shots of the same subject from different angles - experiment!",
+            "Clean the lens with a proper microfiber cloth, never a shirt or paper towel.",
+            "ISO 100-400 works best in bright conditions; increase ISO in darker environments.",
+            "Turn off the flash for more natural-looking portraits near windows.",
+            "Review your shots on the camera's screen before returning equipment.",
+            "Keep your shutter speed at least 1/focal length to avoid camera shake (e.g., 1/50 for 50mm).",
+            "Use wider apertures (lower f-numbers like f/2.8) to create beautiful background blur.",
+            "Golden hour (sunrise/sunset) provides the most flattering natural light for photography.",
+            "Always use the camera strap around your neck or wrist to prevent drops.",
+            "Look for leading lines that draw the viewer's eye through your image.",
+            "Use negative space to give your subject room to breathe and create minimalist compositions.",
+            "Frame your subject using elements like doorways, windows, or tree branches.",
+            "Experiment with symmetry - centered compositions can be powerful when done intentionally.",
+            "Change your perspective: shoot from high above or down low for unique viewpoints.",
+            "Include foreground interest to add depth and lead viewers into your image.",
+            "In editing: adjust white balance first to ensure accurate colors in your image.",
+            "Don't over-edit: subtle adjustments usually look more professional than heavy filters.",
+            "Increase contrast slightly to make your images pop, but avoid crushing blacks or blowing highlights.",
+            "Use the crop tool to improve composition - you don't have to keep everything you shot.",
+            "Adjust exposure in post if needed, but try to get it right in-camera first.",
+            "Sharpen your images as the final step in editing, not the first.",
+            "Watch your histogram: keep most data in the middle range to preserve detail.",
+            "Use spot metering to expose for your subject when backgrounds are very bright or dark."
+        ];
+        
+        let currentTipIndex = 0;
+        
+        function rotateTip() {
+            const tipElement = document.getElementById('tipText');
+            if (!tipElement) return;
+            
+            // Fade out
+            tipElement.style.opacity = '0';
+            
+            setTimeout(() => {
+                // Change tip
+                currentTipIndex = (currentTipIndex + 1) % photographyTips.length;
+                tipElement.textContent = '"' + photographyTips[currentTipIndex] + '"';
+                
+                // Fade in
+                tipElement.style.opacity = '1';
+            }, 500); // Wait for fade out to complete
+        }
+        
+        // Start rotation after page loads
+        window.addEventListener('load', () => {
+            setInterval(rotateTip, 10000); // Change every 10 seconds
+        });
+    </script>
     <script src="app.js?v=2.0.2"></script>
 </body>
 </html>
