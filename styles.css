@@ -404,6 +404,7 @@ body {
     transition: all 0.2s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     min-height: 100px;
+    height: 100%;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;

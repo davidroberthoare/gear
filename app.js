@@ -461,6 +461,8 @@ function renderDashboard() {
         $card.click(() => handleScan(item));
         $itemsGrid.append($card);
     });
+
+    updateItemsGridLayout();
     
     // Render logs
     const $logContainer = $('#logContainer');
@@ -482,6 +484,28 @@ function renderDashboard() {
                 </div>
             `);
             $logContainer.append($logEntry);
+        });
+    }
+}
+
+function updateItemsGridLayout() {
+    const $itemsGrid = $('#itemsGrid');
+    const count = state.items.length;
+
+    if (count > 0 && count <= 20) {
+        const cols = Math.ceil(Math.sqrt(count));
+        const rows = Math.ceil(count / cols);
+
+        $itemsGrid.css({
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, 1fr)`,
+            overflowY: 'hidden'
+        });
+    } else {
+        $itemsGrid.css({
+            gridTemplateColumns: '',
+            gridTemplateRows: '',
+            overflowY: 'auto'
         });
     }
 }
