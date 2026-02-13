@@ -521,13 +521,25 @@ function renderDashboard() {
         $logContainer.html(`<div class="log-empty">${emptyText}</div>`);
     } else {
         filteredLogs.forEach(log => {
+            // Determine status class based on action
+            let statusClass = '';
+            if (log.action === 'Checkout') {
+                statusClass = 'status-checkout';
+            } else if (log.action.includes('Pending')) {
+                statusClass = 'status-pending';
+            } else if (log.action.includes('Verified')) {
+                statusClass = 'status-verified';
+            } else if (log.action.includes('Returned') || log.action.includes('Return')) {
+                statusClass = 'status-return';
+            }
+            
             const $logEntry = $(
                 `<div class="log-entry">
                     <div class="log-header">
                         <span class="log-student">${log.student}</span>
                         <span class="log-time">${formatLogTime(log)}</span>
                     </div>
-                    <div class="log-action">
+                    <div class="log-action ${statusClass}">
                         ${log.action}: <span class="log-item">${log.item}</span>
                     </div>
                 </div>`

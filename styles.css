@@ -581,6 +581,23 @@ body {
     margin-top: 0.25rem;
 }
 
+/* Status color coding for log actions */
+.log-action.status-checkout {
+    color: #0284c7; /* Blue for checkouts */
+}
+
+.log-action.status-pending {
+    color: #ea580c; /* Orange for pending returns */
+}
+
+.log-action.status-return {
+    color: #16a34a; /* Green for returns */
+}
+
+.log-action.status-verified {
+    color: #7c3aed; /* Purple for verified returns */
+}
+
 .log-item {
     color: #0f172a;
 }
