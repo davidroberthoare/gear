@@ -476,7 +476,7 @@ function renderDashboard() {
                 <div class="log-entry">
                     <div class="log-header">
                         <span class="log-student">${log.student}</span>
-                        <span class="log-time">${log.time_str}</span>
+                        <span class="log-time">${formatLogTime(log)}</span>
                     </div>
                     <div class="log-action">
                         ${log.action}: <span class="log-item">${log.item}</span>
@@ -486,6 +486,25 @@ function renderDashboard() {
             $logContainer.append($logEntry);
         });
     }
+}
+
+function formatLogTime(log) {
+    if (log && log.timestamp) {
+        const date = new Date(Number(log.timestamp));
+        if (!Number.isNaN(date.getTime())) {
+            const datePart = date.toLocaleDateString(undefined, {
+                month: 'numeric',
+                day: 'numeric'
+            });
+            const timePart = date.toLocaleTimeString(undefined, {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+            return `${datePart} ${timePart}`;
+        }
+    }
+
+    return log && log.time_str ? log.time_str : '';
 }
 
 function updateItemsGridLayout() {
@@ -984,9 +1003,9 @@ function printSpecific(item) {
     // Open print labels page for specific item in new window
     const params = new URLSearchParams({
         item: item.item_id,
-        size: 80,
-        cols: 3,
-        show_name: '1'
+        // size: 80,
+        // cols: 3,
+        // show_name: '1'
     });
     window.open(`print_labels.php?${params.toString()}`, '_blank');
 }

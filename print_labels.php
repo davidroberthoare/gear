@@ -10,9 +10,9 @@ $dbFile = __DIR__ . '/gear_kiosk.db';
 // Get parameters
 $itemId = $_GET['item'] ?? null;  // Specific item ID (if printing single item)
 $size = intval($_GET['size'] ?? 80);  // QR code size in pixels (default 80)
-$cols = intval($_GET['cols'] ?? 3);   // Number of columns (default 3)
+$cols = intval($_GET['cols'] ?? 4);   // Number of columns (default 3)
 $rows = intval($_GET['rows'] ?? 0);   // Number of rows (0 = auto)
-$showName = isset($_GET['show_name']) ? $_GET['show_name'] !== '0' : true; // Show item name (default true)
+$showName = isset($_GET['show_name']) ? $_GET['show_name'] === '1' : false; // Show item name (default false)
 
 // Validate parameters
 $size = max(40, min(200, $size)); // Between 40 and 200
