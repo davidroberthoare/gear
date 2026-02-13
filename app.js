@@ -43,12 +43,12 @@ $(document).ready(function() {
     setupEventListeners();
     console.log('Event listeners set up');
     
-    // Refresh data every 5 seconds if logged in
-    setInterval(() => {
-        if (state.currentTeacher) {
-            loadData();
-        }
-    }, 5000);
+    // Refresh data every 15 seconds if logged in
+    // setInterval(() => {
+    //     if (state.currentTeacher) {
+    //         loadData();
+    //     }
+    // }, 15000);
 });
 
 // Initialize QR Scanner
@@ -247,6 +247,12 @@ function setupEventListeners() {
     $('#logoutBtn').click(handleLogout);
     $('#verifyAllBtn').click(() => showModal('teacher_auth_all'));
     
+    // One-Time Checkout Modal
+    $('#oneTimeBtn').click(showOneTimeModal);
+    $('#oneTimeCancelBtn').click(closeOneTimeModal);
+    $('#oneTimeSubmitBtn').click(handleOneTimeSubmit);
+    $('#oneTimeItemName, #oneTimeStudentName, #oneTimeTeacherPin').on('input', hideOneTimeError);
+
     // Admin Panel
     $('#closeAdminBtn').click(() => showView('dashboard'));
     $('#printAllBtn').click(printAll);
@@ -291,6 +297,8 @@ function setupEventListeners() {
         if (e.which === 13) { // Enter key
             if ($('#modalOverlay').is(':visible')) {
                 handleSubmit();
+            } else if ($('#oneTimeModalOverlay').is(':visible')) {
+                handleOneTimeSubmit();
             }
         }
     });
@@ -302,6 +310,14 @@ function setupEventListeners() {
     
     // Close modal on overlay click
     $('#modalOverlay').click(closeModal);
+
+    // Prevent modal close on click inside one-time modal
+    $('.one-time-modal').click(function(e) {
+        e.stopPropagation();
+    });
+
+    // Close one-time modal on overlay click
+    $('#oneTimeModalOverlay').click(closeOneTimeModal);
 }
 
 // Login functions
@@ -600,7 +616,7 @@ function renderAdminPanel() {
 function handleScan(item) {
     state.activeItem = item;
     
-    if (item.status === 'pending') {
+    if (item.status === 'pending' || requiresTeacherReturn(item)) {
         showModal('teacher_auth');
     } else {
         showModal('pin_entry');
@@ -734,6 +750,10 @@ function handlePinEntry(pin) {
         newUser = student.name;
         action = 'Checkout';
     } else if (item.status === 'out') {
+        if (requiresTeacherReturn(item)) {
+            showError('Teacher PIN required');
+            return;
+        }
         // If item is temporary, delete it instead of setting to pending
         if (item.is_temporary == 1) {
             deleteItemAfterReturn(item, student);
@@ -804,6 +824,11 @@ function handleTeacherAuth(pin) {
     }
     
     const item = state.activeItem;
+
+    if (item && item.status === 'out' && item.is_temporary == 1) {
+        deleteItemAfterReturn(item, { name: 'Teacher' });
+        return;
+    }
     
     // Update item to available
     $.ajax({
@@ -891,11 +916,227 @@ function addLog(item, student, action) {
     });
 }
 
+function requiresTeacherReturn(item) {
+    if (!item || item.status !== 'out') {
+        return false;
+    }
+
+    if (item.is_temporary == 1) {
+        return true;
+    }
+
+    return isTemporaryStudentName(item.current_user);
+}
+
+function isTemporaryStudentName(name) {
+    if (!name) {
+        return false;
+    }
+
+    const target = name.toLowerCase();
+    return state.students.some(student => student.is_temporary == 1 && student.name && student.name.toLowerCase() === target);
+}
+
+function showOneTimeModal() {
+    clearOneTimeInputs();
+    hideOneTimeError();
+    $('#oneTimeModalOverlay').show();
+
+    setTimeout(() => {
+        const $input = $('#oneTimeItemName');
+        $input.focus();
+        $input[0].click();
+    }, 100);
+
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+function closeOneTimeModal() {
+    $('#oneTimeModalOverlay').hide();
+    clearOneTimeInputs();
+    hideOneTimeError();
+}
+
+function showOneTimeError(message) {
+    $('#oneTimeError').text(message).show();
+}
+
+function hideOneTimeError() {
+    $('#oneTimeError').hide().text('');
+}
+
+function clearOneTimeInputs() {
+    $('#oneTimeItemName').val('');
+    $('#oneTimeStudentName').val('');
+    $('#oneTimeTeacherPin').val('');
+}
+
+function generateTempItemId() {
+    let index = 1;
+    let id = `TEMP-${index}`;
+
+    while (state.items.some(item => item.item_id === id)) {
+        index += 1;
+        id = `TEMP-${index}`;
+    }
+
+    return id;
+}
+
+function generateTempPin() {
+    let pin;
+    do {
+        pin = String(Math.floor(10000 + Math.random() * 90000));
+    } while (state.students.some(student => student.pin === pin));
+    return pin;
+}
+
+function findItemByCode(code) {
+    const target = code.toLowerCase();
+    return state.items.find(item => (item.item_id || '').toLowerCase() === target);
+}
+
+function findStudentByName(name) {
+    const target = name.toLowerCase();
+    return state.students.find(student => (student.name || '').toLowerCase() === target);
+}
+
+function handleOneTimeSubmit() {
+    hideOneTimeError();
+
+    if (!state.currentTeacher) {
+        showOneTimeError('Please log in first');
+        return;
+    }
+
+    const itemCode = $('#oneTimeItemName').val().trim();
+    const studentName = $('#oneTimeStudentName').val().trim();
+    const teacherPin = $('#oneTimeTeacherPin').val().trim();
+
+    if (!itemCode || !studentName) {
+        showOneTimeError('Enter item code and student name');
+        return;
+    }
+
+    if (teacherPin !== state.currentTeacher.pin) {
+        showOneTimeError('Invalid Teacher PIN');
+        return;
+    }
+
+    const resolveItem = (callback) => {
+        const existingItem = findItemByCode(itemCode);
+        if (existingItem) {
+            if (existingItem.status !== 'available') {
+                showOneTimeError('Item not available');
+                return;
+            }
+            callback(existingItem);
+            return;
+        }
+
+        const generatedId = generateTempItemId();
+        $.ajax({
+            url: API_URL,
+            method: 'POST',
+            data: JSON.stringify({
+                action: 'add_item',
+                teacher_id: state.currentTeacher.id,
+                item_id: generatedId,
+                name: itemCode,
+                is_temporary: 1
+            }),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    callback({
+                        id: response.id,
+                        item_id: generatedId,
+                        name: itemCode,
+                        status: 'available',
+                        is_temporary: 1
+                    });
+                } else {
+                    showOneTimeError(response.error || 'Error adding item');
+                }
+            },
+            error: function() {
+                showOneTimeError('Error adding item');
+            }
+        });
+    };
+
+    const resolveStudent = (callback) => {
+        const existingStudent = findStudentByName(studentName);
+        if (existingStudent) {
+            callback(existingStudent);
+            return;
+        }
+
+        const generatedPin = generateTempPin();
+        $.ajax({
+            url: API_URL,
+            method: 'POST',
+            data: JSON.stringify({
+                action: 'add_student',
+                teacher_id: state.currentTeacher.id,
+                name: studentName,
+                pin: generatedPin,
+                is_temporary: 1
+            }),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    callback({
+                        name: studentName,
+                        pin: generatedPin,
+                        is_temporary: 1
+                    });
+                } else {
+                    showOneTimeError(response.error || 'Error adding student');
+                }
+            },
+            error: function() {
+                showOneTimeError('Error adding student');
+            }
+        });
+    };
+
+    resolveItem((item) => {
+        resolveStudent((student) => {
+            $.ajax({
+                url: API_URL,
+                method: 'POST',
+                data: JSON.stringify({
+                    action: 'update_item',
+                    id: item.id,
+                    status: 'out',
+                    current_user: student.name
+                }),
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) {
+                        addLog(item.item_id, student.name, 'Checkout');
+                        closeOneTimeModal();
+                        loadData();
+                    } else {
+                        showOneTimeError('Checkout failed');
+                    }
+                },
+                error: function() {
+                    showOneTimeError('Checkout failed');
+                }
+            });
+        });
+    });
+}
+
 // Add new item
 function addItem() {
     const itemId = $('#newItemId').val().trim();
     const name = $('#newItemName').val().trim();
-    const isTemporary = $('#itemTemporary').is(':checked') ? 1 : 0;
+    const isTemporary = 0;
     
     if (!itemId || !name) {
         return;
@@ -916,7 +1157,6 @@ function addItem() {
             if (response.success) {
                 $('#newItemId').val('');
                 $('#newItemName').val('');
-                $('#itemTemporary').prop('checked', false);
                 loadData();
             } else {
                 alert('Error adding item: ' + (response.error || 'Unknown error'));
@@ -959,7 +1199,7 @@ function deleteItem(id) {
 function addStudent() {
     const name = $('#newStudentName').val().trim();
     const pin = $('#newStudentPin').val().trim();
-    const isTemporary = $('#studentTemporary').is(':checked') ? 1 : 0;
+    const isTemporary = 0;
     
     if (!name || !pin || pin.length !== 5) {
         return;
@@ -986,7 +1226,6 @@ function addStudent() {
             if (response.success) {
                 $('#newStudentName').val('');
                 $('#newStudentPin').val('');
-                $('#studentTemporary').prop('checked', false);
                 loadData();
             } else {
                 alert('Error adding student: ' + (response.error || 'PIN may already exist'));
