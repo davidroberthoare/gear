@@ -62,11 +62,11 @@
                 <button id="oneTimeBtn" class="btn-icon" title="One-Time Checkout">
                     <i data-lucide="alert-circle"></i>
                 </button>
-                <button id="logoutBtn" class="btn-icon" title="Logout">
-                    <i data-lucide="log-out"></i>
-                </button>
                 <button id="adminBtn" class="btn-icon">
                     <i data-lucide="settings"></i>
+                </button>
+                <button id="logoutBtn" class="btn-icon" title="Logout">
+                    <i data-lucide="log-out"></i>
                 </button>
             </div>
         </header>
@@ -97,14 +97,14 @@
                         <div class="activity-log">
                             <div class="section-header">
                                 <h2>Recent Activity</h2>
+                                <input type="text" id="activitySearch" class="activity-search" placeholder="Search...">
                             </div>
                             <div class="log-container" id="logContainer">
                                 <div class="log-empty">No logs yet</div>
                             </div>
                         </div>
                         <div class="teacher-tip">
-                            <h3>Teacher Quick Tip</h3>
-                            <p id="tipText">"Always ensure students check the battery level before returning cameras to the cabinet."</p>
+                            <p id="tipText"></p>
                         </div>
                     </section>
                 </div>
@@ -279,7 +279,7 @@
             setTimeout(() => {
                 // Change tip
                 currentTipIndex = (currentTipIndex + 1) % photographyTips.length;
-                tipElement.textContent = '"' + photographyTips[currentTipIndex] + '"';
+                tipElement.textContent = 'Tip: ' + photographyTips[currentTipIndex];
                 
                 // Fade in
                 tipElement.style.opacity = '1';
@@ -287,6 +287,7 @@
         }
         
         // Start rotation after page loads
+        rotateTip(); // Show first tip immediately
         window.addEventListener('load', () => {
             setInterval(rotateTip, 10000); // Change every 10 seconds
         });

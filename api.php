@@ -313,9 +313,9 @@ function getAllStudents($db, $teacherId = null) {
 
 function getRecentLogs($db, $teacherId = null) {
     if ($teacherId === null) {
-        $stmt = $db->query('SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50');
+        $stmt = $db->query('SELECT * FROM logs ORDER BY timestamp DESC LIMIT 100');
     } else {
-        $stmt = $db->prepare('SELECT * FROM logs WHERE teacher_id = ? ORDER BY timestamp DESC LIMIT 50');
+        $stmt = $db->prepare('SELECT * FROM logs WHERE teacher_id = ? ORDER BY timestamp DESC LIMIT 100');
         $stmt->execute([$teacherId]);
     }
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

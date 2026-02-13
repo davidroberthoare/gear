@@ -9,7 +9,8 @@ let state = {
     logs: [],
     view: 'dashboard',
     activeItem: null,
-    modalType: null
+    modalType: null,
+    activityFilter: ''
 };
 
 // QR Scanner State
@@ -240,24 +241,14 @@ function setupEventListeners() {
         // No duplicate check needed for login screen
         $('#loginPin').removeClass('pin-duplicate pin-valid');
     });
-    
-    // Header
-    $('#logoText').click(() => showView('dashboard'));
-    $('#adminBtn').click(() => showModal('admin_login'));
-    $('#logoutBtn').click(handleLogout);
-    $('#verifyAllBtn').click(() => showModal('teacher_auth_all'));
-    
-    // One-Time Checkout Modal
-    $('#oneTimeBtn').click(showOneTimeModal);
-    $('#oneTimeCancelBtn').click(closeOneTimeModal);
-    $('#oneTimeSubmitBtn').click(handleOneTimeSubmit);
-    $('#oneTimeItemName, #oneTimeStudentName, #oneTimeTeacherPin').on('input', hideOneTimeError);
-
-    // Admin Panel
-    $('#closeAdminBtn').click(() => showView('dashboard'));
-    $('#printAllBtn').click(printAll);
-    $('#addItemBtn').click(addItem);
     $('#addStudentBtn').click(addStudent);
+
+    // Activity filter
+    $('#activitySearch').on('input', function() {
+        const value = $(this).val();
+        state.activityFilter = value.length >= 2 ? value : '';
+        renderDashboard();
+    });
     
     // Real-time PIN duplicate checking for student creation
     $('#newStudentPin').on('input', function() {
@@ -483,13 +474,31 @@ function renderDashboard() {
     // Render logs
     const $logContainer = $('#logContainer');
     $logContainer.empty();
+
+    const filterText = (state.activityFilter || '').trim().toLowerCase();
+    const itemNameByCode = state.items.reduce((acc, item) => {
+        acc[item.item_id] = item.name || '';
+        return acc;
+    }, {});
+
+    const filteredLogs = filterText.length >= 2
+        ? state.logs.filter(log => {
+            const itemCode = (log.item || '').toLowerCase();
+            const itemName = (itemNameByCode[log.item] || '').toLowerCase();
+            const studentName = (log.student || '').toLowerCase();
+            return itemCode.includes(filterText)
+                || itemName.includes(filterText)
+                || studentName.includes(filterText);
+        })
+        : state.logs;
     
-    if (state.logs.length === 0) {
-        $logContainer.html('<div class="log-empty">No logs yet</div>');
+    if (filteredLogs.length === 0) {
+        const emptyText = filterText.length >= 2 ? 'No matching logs' : 'No logs yet';
+        $logContainer.html(`<div class="log-empty">${emptyText}</div>`);
     } else {
-        state.logs.forEach(log => {
-            const $logEntry = $(`
-                <div class="log-entry">
+        filteredLogs.forEach(log => {
+            const $logEntry = $(
+                `<div class="log-entry">
                     <div class="log-header">
                         <span class="log-student">${log.student}</span>
                         <span class="log-time">${formatLogTime(log)}</span>
@@ -497,8 +506,8 @@ function renderDashboard() {
                     <div class="log-action">
                         ${log.action}: <span class="log-item">${log.item}</span>
                     </div>
-                </div>
-            `);
+                </div>`
+            );
             $logContainer.append($logEntry);
         });
     }
