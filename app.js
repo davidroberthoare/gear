@@ -12,6 +12,12 @@ let state = {
     modalType: null
 };
 
+// QR Scanner State
+let qrScanner = null;
+let lastScannedCode = null;
+let lastScanTime = 0;
+const SCAN_COOLDOWN = 2000; // 1 second cooldown between scans
+
 // Initialize Application
 $(document).ready(function() {
     console.log('Gear Kiosk initializing...');
@@ -45,16 +51,164 @@ $(document).ready(function() {
     }, 5000);
 });
 
+// Initialize QR Scanner
+function initQRScanner() {
+    if (!state.currentTeacher) {
+        console.log('❌ QR Scanner: Cannot initialize - no teacher logged in');
+        return;
+    }
+    
+    console.log('🎥 QR Scanner: Initializing...');
+    console.log('📊 QR Scanner: Current items count:', state.items.length);
+    
+    // Create scanner instance
+    qrScanner = new Html5Qrcode("qr-reader");
+    console.log('✅ QR Scanner: Html5Qrcode instance created');
+    
+    const config = {
+        fps: 5, // Reduced from 10 to minimize performance warnings
+        // qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.777778
+    };
+    console.log('⚙️ QR Scanner: Config:', config);
+    
+    // Start scanning
+    console.log('📷 QR Scanner: Attempting to start with front camera...');
+    qrScanner.start(
+        { facingMode: "user" }, // Use front camera (iPad default)
+        config,
+        onQRCodeScanned,
+        onScanError
+    ).then(() => {
+        console.log('✅ QR Scanner: Started successfully with front camera');
+        console.log('🔄 QR Scanner: Now scanning at', config.fps, 'FPS');
+        $('#qr-scanner-container').addClass('polling');
+    }).catch(err => {
+        console.error('❌ QR Scanner: Failed to start with front camera:', err);
+        console.log('🔄 QR Scanner: Trying back camera as fallback...');
+        // Try with back camera if front camera fails
+        qrScanner.start(
+            { facingMode: "environment" },
+            config,
+            onQRCodeScanned,
+            onScanError
+        ).then(() => {
+            console.log('✅ QR Scanner: Started successfully with back camera');
+            $('#qr-scanner-container').addClass('polling');
+        }).catch(err2 => {
+            console.error('❌ QR Scanner: Failed with both cameras:', err2);
+            $('#qr-scanner-container').removeClass('polling');
+        });
+    });
+}
+
+// Stop QR Scanner
+function stopQRScanner() {
+    console.log('🛑 QR Scanner: Stop requested');
+    if (qrScanner && qrScanner.isScanning) {
+        console.log('🛑 QR Scanner: Stopping active scanner...');
+        qrScanner.stop().then(() => {
+            console.log('✅ QR Scanner: Stopped successfully');
+            $('#qr-scanner-container').removeClass('polling detected');
+        }).catch(err => {
+            console.error('❌ QR Scanner: Error stopping:', err);
+        });
+    } else {
+        console.log('⚠️ QR Scanner: No active scanner to stop');
+    }
+}
+
+// Handle QR Code Scan
+function onQRCodeScanned(decodedText, decodedResult) {
+    const now = Date.now();
+    
+    console.log('🔍 QR Scanner: Code detected in frame');
+    console.log('📝 QR Scanner: Decoded text:', decodedText);
+    console.log('📊 QR Scanner: Result format:', decodedResult?.result?.format?.formatName || 'unknown');
+    
+    // Prevent rapid re-scans of the same code
+    if (decodedText === lastScannedCode && (now - lastScanTime) < SCAN_COOLDOWN) {
+        const timeSince = now - lastScanTime;
+        console.log('⏸️ QR Scanner: Cooldown active, ignoring duplicate scan (' + timeSince + 'ms since last)');
+        return;
+    }
+    
+    lastScannedCode = decodedText;
+    lastScanTime = now;
+    
+    console.log('✅ QR Scanner: New scan accepted (cooldown passed)');
+    console.log('🔎 QR Scanner: Searching for item with ID:', decodedText);
+    console.log('📋 QR Scanner: Current inventory:', state.items.map(i => i.item_id).join(', '));
+    
+    // Visual feedback
+    $('#qr-scanner-container').addClass('detected');
+    setTimeout(() => {
+        $('#qr-scanner-container').removeClass('detected');
+    }, 1500);
+    
+    // Find item by ID (trim and case-insensitive match)
+    const searchId = decodedText.trim();
+    console.log('🔍 QR Scanner: Trimmed search ID:', `"${searchId}"`);
+    
+    const item = state.items.find(i => {
+        const itemId = (i.item_id || '').trim();
+        console.log('  Comparing:', `"${itemId}"`, 'with', `"${searchId}"`, '=', itemId === searchId);
+        return itemId === searchId;
+    });
+    
+    if (item) {
+        console.log('✅ QR Scanner: Match found!');
+        console.log('📦 QR Scanner: Item details:', {
+            id: item.id,
+            item_id: item.item_id,
+            name: item.name,
+            status: item.status,
+            current_user: item.current_user
+        });
+        console.log('🎯 QR Scanner: Triggering item action...');
+        // Trigger the item button
+        handleScan(item);
+    } else {
+        console.warn('⚠️ QR Scanner: No matching item found for code:', decodedText);
+        console.log('💡 QR Scanner: Available item IDs:', state.items.map(i => i.item_id));
+    }
+}
+
+// Handle Scan Errors (mostly just verbose logging we can ignore)
+function onScanError(error) {
+    // Ignore common scanning errors (nothing detected yet)
+    // These are normal when no QR code is in view
+    const ignoredErrors = [
+        'NotFoundException',
+        'No MultiFormat Readers',
+        'QR code parse error'
+    ];
+    
+    const shouldIgnore = ignoredErrors.some(msg => error && error.includes(msg));
+    
+    if (error && !shouldIgnore) {
+        console.debug('⚠️ QR Scanner: Non-critical error:', error);
+    }
+    // Uncomment below for full verbose logging of all scan attempts:
+    // console.debug('🔄 QR Scanner: Poll attempt (no code detected)');
+}
+
 // Show/Hide screens
 function showLogin() {
     $('#loginScreen').show();
     $('#appContainer').hide();
+    stopQRScanner();
 }
 
 function showApp() {
     $('#loginScreen').hide();
     $('#appContainer').show();
     $('#teacherName').text(state.currentTeacher.username + "'s Classroom");
+    
+    // Initialize QR scanner when app shows
+    setTimeout(() => {
+        initQRScanner();
+    }, 500);
 }
 
 // Load data from API
@@ -267,6 +421,7 @@ function loginAsTeacher(teacher) {
 
 function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
+        stopQRScanner();
         state.currentTeacher = null;
         localStorage.removeItem('currentTeacher');
         showLogin();
@@ -818,5 +973,15 @@ function hideError() {
 // Show view
 function showView(view) {
     state.view = view;
+    
+    // Stop scanner when going to admin panel, restart when returning to dashboard
+    if (view === 'admin_panel') {
+        stopQRScanner();
+    } else if (view === 'dashboard' && state.currentTeacher) {
+        setTimeout(() => {
+            initQRScanner();
+        }, 500);
+    }
+    
     render();
 }
