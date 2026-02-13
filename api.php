@@ -237,6 +237,74 @@ try {
             echo json_encode(['success' => true]);
             break;
             
+        case 'change_teacher_pin':
+            $teacherId = $data['teacher_id'] ?? 0;
+            $currentPin = $data['current_pin'] ?? '';
+            $newPin = $data['new_pin'] ?? '';
+            
+            if ($teacherId == 0 || empty($currentPin) || empty($newPin)) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                break;
+            }
+            
+            // Verify current PIN
+            $stmt = $db->prepare('SELECT pin FROM teachers WHERE id = ?');
+            $stmt->execute([$teacherId]);
+            $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$teacher || $teacher['pin'] !== $currentPin) {
+                echo json_encode(['success' => false, 'error' => 'Current PIN is incorrect']);
+                break;
+            }
+            
+            // Update PIN
+            $stmt = $db->prepare('UPDATE teachers SET pin = ? WHERE id = ?');
+            $stmt->execute([$newPin, $teacherId]);
+            
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'delete_classroom':
+            $teacherId = $data['teacher_id'] ?? 0;
+            $pin = $data['pin'] ?? '';
+            
+            if ($teacherId == 0 || empty($pin)) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                break;
+            }
+            
+            // Verify PIN
+            $stmt = $db->prepare('SELECT pin FROM teachers WHERE id = ?');
+            $stmt->execute([$teacherId]);
+            $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$teacher || $teacher['pin'] !== $pin) {
+                echo json_encode(['success' => false, 'error' => 'PIN is incorrect']);
+                break;
+            }
+            
+            // Delete all related data (CASCADE will handle this automatically due to FOREIGN KEY)
+            // But since SQLite doesn't enforce foreign keys by default, we'll delete manually
+            
+            // Delete logs
+            $stmt = $db->prepare('DELETE FROM logs WHERE teacher_id = ?');
+            $stmt->execute([$teacherId]);
+            
+            // Delete items
+            $stmt = $db->prepare('DELETE FROM items WHERE teacher_id = ?');
+            $stmt->execute([$teacherId]);
+            
+            // Delete students
+            $stmt = $db->prepare('DELETE FROM students WHERE teacher_id = ?');
+            $stmt->execute([$teacherId]);
+            
+            // Delete teacher account
+            $stmt = $db->prepare('DELETE FROM teachers WHERE id = ?');
+            $stmt->execute([$teacherId]);
+            
+            echo json_encode(['success' => true]);
+            break;
+            
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
     }

@@ -161,6 +161,45 @@
                         <div class="admin-list" id="adminStudentsList"></div>
                     </section>
                 </div>
+
+                <!-- Classroom Settings -->
+                <section class="admin-section settings-section">
+                    <h3>
+                        <i data-lucide="shield-alert"></i> Classroom Settings
+                    </h3>
+                    
+                    <div class="settings-group">
+                        <div class="settings-item">
+                            <div class="settings-label">
+                                <i data-lucide="lock"></i>
+                                <span>Change Teacher PIN</span>
+                            </div>
+                            <div class="settings-form">
+                                <input type="password" id="currentPin" placeholder="Current PIN" class="input-medium" maxlength="5">
+                                <input type="password" id="newPin" placeholder="New PIN" class="input-medium" maxlength="5">
+                                <input type="password" id="confirmNewPin" placeholder="Confirm PIN" class="input-medium" maxlength="5">
+                                <button id="changePinBtn" class="btn-change-pin">
+                                    Update PIN
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group danger-zone">
+                        <div class="settings-item">
+                            <div class="settings-label danger">
+                                <i data-lucide="trash-2"></i>
+                                <span>Delete Classroom</span>
+                            </div>
+                            <p class="danger-warning">
+                                ⚠️ This will permanently delete your classroom account, all inventory items, all students, and all activity records. This action cannot be undone!
+                            </p>
+                            <button id="deleteClassroomBtn" class="btn-delete-classroom">
+                                Delete Entire Classroom
+                            </button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>

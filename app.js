@@ -259,6 +259,10 @@ function setupEventListeners() {
     $('#printAllBtn').click(printAll);
     $('#addItemBtn').click(addItem);
     $('#addStudentBtn').click(addStudent);
+    
+    // Settings Panel
+    $('#changePinBtn').click(handleChangePin);
+    $('#deleteClassroomBtn').click(handleDeleteClassroom);
 
     // Activity filter
     $('#activitySearch').on('input', function() {
@@ -1287,6 +1291,148 @@ function printAll() {
         show_name: '1'
     });
     window.open(`print_labels.php?${params.toString()}`, '_blank');
+}
+
+// Handle Change PIN
+function handleChangePin() {
+    const currentPin = $('#currentPin').val().trim();
+    const newPin = $('#newPin').val().trim();
+    const confirmNewPin = $('#confirmNewPin').val().trim();
+    
+    // Validation
+    if (!currentPin || !newPin || !confirmNewPin) {
+        alert('Please fill in all PIN fields');
+        return;
+    }
+    
+    if (currentPin.length !== 5 || newPin.length !== 5 || confirmNewPin.length !== 5) {
+        alert('All PINs must be exactly 5 digits');
+        return;
+    }
+    
+    if (currentPin !== state.currentTeacher.pin) {
+        alert('Current PIN is incorrect');
+        $('#currentPin').val('').focus();
+        return;
+    }
+    
+    if (newPin !== confirmNewPin) {
+        alert('New PIN and confirmation do not match');
+        $('#newPin').val('');
+        $('#confirmNewPin').val('');
+        $('#newPin').focus();
+        return;
+    }
+    
+    if (newPin === currentPin) {
+        alert('New PIN must be different from current PIN');
+        $('#newPin').val('');
+        $('#confirmNewPin').val('');
+        $('#newPin').focus();
+        return;
+    }
+    
+    // Confirm the change
+    if (!confirm('Are you sure you want to change your teacher PIN?')) {
+        return;
+    }
+    
+    // Make API call
+    $.ajax({
+        url: API_URL,
+        method: 'POST',
+        data: JSON.stringify({
+            action: 'change_teacher_pin',
+            teacher_id: state.currentTeacher.id,
+            current_pin: currentPin,
+            new_pin: newPin
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                // Update local state
+                state.currentTeacher.pin = newPin;
+                localStorage.setItem('currentTeacher', JSON.stringify(state.currentTeacher));
+                
+                // Clear fields
+                $('#currentPin').val('');
+                $('#newPin').val('');
+                $('#confirmNewPin').val('');
+                
+                alert('PIN successfully changed!');
+            } else {
+                alert('Error changing PIN: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function() {
+            alert('Error changing PIN. Please try again.');
+        }
+    });
+}
+
+// Handle Delete Classroom
+function handleDeleteClassroom() {
+    const username = state.currentTeacher.username;
+    
+    // First confirmation
+    if (!confirm(`⚠️ WARNING: You are about to permanently delete the classroom "${username}".\n\nThis will delete:\n• All inventory items\n• All students\n• All activity logs\n• Your teacher account\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?`)) {
+        return;
+    }
+    
+    // Second confirmation - require typing classroom name
+    const confirmation = prompt(`To confirm deletion, please type your classroom name: ${username}`);
+    
+    if (confirmation !== username) {
+        if (confirmation !== null) { // null means they clicked Cancel
+            alert('Classroom name does not match. Deletion cancelled.');
+        }
+        return;
+    }
+    
+    // Third confirmation - require PIN
+    const pinConfirmation = prompt('Enter your teacher PIN to confirm deletion:');
+    
+    if (!pinConfirmation) {
+        return;
+    }
+    
+    if (pinConfirmation !== state.currentTeacher.pin) {
+        alert('Incorrect PIN. Deletion cancelled.');
+        return;
+    }
+    
+    // Make API call
+    $.ajax({
+        url: API_URL,
+        method: 'POST',
+        data: JSON.stringify({
+            action: 'delete_classroom',
+            teacher_id: state.currentTeacher.id,
+            pin: state.currentTeacher.pin
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                alert('Classroom successfully deleted. You will now be logged out.');
+                
+                // Clear local storage and state
+                localStorage.removeItem('currentTeacher');
+                state.currentTeacher = null;
+                state.items = [];
+                state.students = [];
+                state.logs = [];
+                
+                // Stop scanner and show login
+                stopQRScanner();
+                showLogin();
+            } else {
+                alert('Error deleting classroom: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function() {
+            alert('Error deleting classroom. Please try again.');
+        }
+    });
 }
 
 // Show error message
