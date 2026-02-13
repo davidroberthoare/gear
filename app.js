@@ -45,11 +45,11 @@ $(document).ready(function() {
     console.log('Event listeners set up');
     
     // Refresh data every 15 seconds if logged in
-    // setInterval(() => {
-    //     if (state.currentTeacher) {
-    //         loadData();
-    //     }
-    // }, 15000);
+    setInterval(() => {
+        if (state.currentTeacher) {
+            loadData();
+        }
+    }, 15000);
 });
 
 // Initialize QR Scanner
@@ -262,7 +262,13 @@ function setupEventListeners() {
     
     // Settings Panel
     $('#changePinBtn').click(handleChangePin);
+    $('#changeUsernameBtn').click(handleChangeUsername);
     $('#deleteClassroomBtn').click(handleDeleteClassroom);
+    
+    // Bulk Import Modal
+    $('#bulkImportBtn').click(showBulkImportModal);
+    $('#bulkImportCancelBtn').click(closeBulkImportModal);
+    $('#bulkImportSubmitBtn').click(handleBulkImport);
 
     // Activity filter
     $('#activitySearch').on('input', function() {
@@ -1351,6 +1357,7 @@ function addStudent() {
 function printSpecific(item) {
     // Open print labels page for specific item in new window
     const params = new URLSearchParams({
+        teacher_id: state.currentTeacher.id,
         item: item.item_id,
         // size: 80,
         // cols: 3,
@@ -1363,6 +1370,7 @@ function printSpecific(item) {
 function printAll() {
     // Open print labels page for all items in new window
     const params = new URLSearchParams({
+        teacher_id: state.currentTeacher.id,
         size: 80,
         cols: 3,
         show_name: '1'
@@ -1443,6 +1451,187 @@ function handleChangePin() {
         },
         error: function() {
             alert('Error changing PIN. Please try again.');
+        }
+    });
+}
+
+// Handle Change Username
+function handleChangeUsername() {
+    const newUsername = $('#newTeacherUsername').val().trim();
+    const confirmPin = $('#confirmPinForUsername').val().trim();
+    
+    // Validation
+    if (!newUsername || !confirmPin) {
+        alert('Please fill in both username and PIN fields');
+        return;
+    }
+    
+    if (confirmPin.length !== 5) {
+        alert('PIN must be exactly 5 digits');
+        return;
+    }
+    
+    if (confirmPin !== state.currentTeacher.pin) {
+        alert('PIN is incorrect');
+        $('#confirmPinForUsername').val('').focus();
+        return;
+    }
+    
+    if (newUsername === state.currentTeacher.username) {
+        alert('New username must be different from current username');
+        $('#newTeacherUsername').val('').focus();
+        return;
+    }
+    
+    // Confirm the change
+    if (!confirm(`Are you sure you want to change your username to "${newUsername}"?`)) {
+        return;
+    }
+    
+    // Make API call
+    $.ajax({
+        url: API_URL,
+        method: 'POST',
+        data: JSON.stringify({
+            action: 'change_teacher_username',
+            teacher_id: state.currentTeacher.id,
+            new_username: newUsername,
+            confirm_pin: confirmPin
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                // Update local state
+                state.currentTeacher.username = response.new_username;
+                localStorage.setItem('currentTeacher', JSON.stringify(state.currentTeacher));
+                
+                // Update display
+                $('#teacherName').text(response.new_username);
+                
+                // Clear fields
+                $('#newTeacherUsername').val('');
+                $('#confirmPinForUsername').val('');
+                
+                alert('Username successfully changed!');
+            } else {
+                alert('Error changing username: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function() {
+            alert('Error changing username. Please try again.');
+        }
+    });
+}
+
+// Show Bulk Import Modal
+function showBulkImportModal() {
+    $('#bulkImportModalOverlay').fadeIn(200);
+    $('#bulkImportText').val('').focus();
+    $('#bulkImportError').hide();
+    $('#bulkImportInfo').hide();
+    setTimeout(() => {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }, 50);
+}
+
+// Close Bulk Import Modal
+function closeBulkImportModal() {
+    $('#bulkImportModalOverlay').fadeOut(200);
+    $('#bulkImportText').val('');
+    $('#bulkImportError').hide();
+    $('#bulkImportInfo').hide();
+}
+
+// Handle Bulk Import
+function handleBulkImport() {
+    const text = $('#bulkImportText').val().trim();
+    
+    if (!text) {
+        $('#bulkImportError').text('Please paste CSV or TSV data').show();
+        return;
+    }
+    
+    // Parse the CSV/TSV data
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    const students = [];
+    const errors = [];
+    
+    lines.forEach((line, index) => {
+        // Try to parse as TSV first, then CSV
+        let parts = line.includes('\t') ? line.split('\t') : line.split(',');
+        parts = parts.map(p => p.trim());
+        
+        if (parts.length !== 2) {
+            errors.push(`Line ${index + 1}: Expected 2 fields (name, PIN), got ${parts.length}`);
+            return;
+        }
+        
+        const [name, pin] = parts;
+        
+        if (!name || !pin) {
+            errors.push(`Line ${index + 1}: Name or PIN is empty`);
+            return;
+        }
+        
+        if (pin.length !== 5 || !/^\d+$/.test(pin)) {
+            errors.push(`Line ${index + 1}: "${name}" - PIN must be exactly 5 digits`);
+            return;
+        }
+        
+        students.push({ name, pin });
+    });
+    
+    if (students.length === 0) {
+        $('#bulkImportError').text('No valid students found. Please check your data format.').show();
+        if (errors.length > 0) {
+            $('#bulkImportInfo').html('<strong>Errors:</strong><br>' + errors.join('<br>')).show();
+        }
+        return;
+    }
+    
+    // Show preview
+    if (errors.length > 0) {
+        const message = `Found ${students.length} valid students and ${errors.length} errors.\n\nContinue with import?`;
+        if (!confirm(message)) {
+            return;
+        }
+    } else {
+        if (!confirm(`Ready to import ${students.length} students. Continue?`)) {
+            return;
+        }
+    }
+    
+    // Make API call
+    $.ajax({
+        url: API_URL,
+        method: 'POST',
+        data: JSON.stringify({
+            action: 'bulk_add_students',
+            teacher_id: state.currentTeacher.id,
+            students: students
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                const added = response.added_count;
+                const apiErrors = response.errors || [];
+                
+                let message = `Successfully imported ${added} students!`;
+                if (apiErrors.length > 0) {
+                    message += `\n\nWarnings:\n${apiErrors.join('\n')}`;
+                }
+                
+                alert(message);
+                closeBulkImportModal();
+                loadData(); // Refresh student list
+            } else {
+                $('#bulkImportError').text('Error: ' + (response.error || 'Unknown error')).show();
+            }
+        },
+        error: function() {
+            $('#bulkImportError').text('Error importing students. Please try again.').show();
         }
     });
 }

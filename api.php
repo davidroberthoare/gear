@@ -304,6 +304,89 @@ try {
             echo json_encode(['success' => true]);
             break;
             
+        case 'change_teacher_username':
+            $teacherId = $data['teacher_id'] ?? 0;
+            $newUsername = $data['new_username'] ?? '';
+            $confirmPin = $data['confirm_pin'] ?? '';
+            
+            if ($teacherId == 0 || empty($newUsername) || empty($confirmPin)) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                break;
+            }
+            
+            // Verify PIN
+            $stmt = $db->prepare('SELECT pin, username FROM teachers WHERE id = ?');
+            $stmt->execute([$teacherId]);
+            $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$teacher || $teacher['pin'] !== $confirmPin) {
+                echo json_encode(['success' => false, 'error' => 'PIN is incorrect']);
+                break;
+            }
+            
+            // Check if new username is the same as current
+            if ($teacher['username'] === $newUsername) {
+                echo json_encode(['success' => false, 'error' => 'New username must be different from current username']);
+                break;
+            }
+            
+            // Check if username already exists
+            $stmt = $db->prepare('SELECT id FROM teachers WHERE username = ? AND id != ?');
+            $stmt->execute([$newUsername, $teacherId]);
+            if ($stmt->fetch()) {
+                echo json_encode(['success' => false, 'error' => 'Username already exists']);
+                break;
+            }
+            
+            // Update username
+            $stmt = $db->prepare('UPDATE teachers SET username = ? WHERE id = ?');
+            $stmt->execute([$newUsername, $teacherId]);
+            
+            echo json_encode(['success' => true, 'new_username' => $newUsername]);
+            break;
+            
+        case 'bulk_add_students':
+            $teacherId = $data['teacher_id'] ?? 0;
+            $students = $data['students'] ?? [];
+            
+            if ($teacherId == 0 || empty($students)) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                break;
+            }
+            
+            $addedCount = 0;
+            $errors = [];
+            
+            foreach ($students as $student) {
+                $name = $student['name'] ?? '';
+                $pin = $student['pin'] ?? '';
+                
+                if (empty($name) || empty($pin)) {
+                    $errors[] = "Skipped invalid entry: name or PIN missing";
+                    continue;
+                }
+                
+                if (strlen($pin) !== 5) {
+                    $errors[] = "Skipped $name: PIN must be exactly 5 digits";
+                    continue;
+                }
+                
+                try {
+                    $stmt = $db->prepare('INSERT INTO students (teacher_id, name, pin, is_temporary) VALUES (?, ?, ?, 0)');
+                    $stmt->execute([$teacherId, $name, $pin]);
+                    $addedCount++;
+                } catch (PDOException $e) {
+                    $errors[] = "Failed to add $name: " . $e->getMessage();
+                }
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'added_count' => $addedCount,
+                'errors' => $errors
+            ]);
+            break;
+            
         case 'delete_classroom':
             $teacherId = $data['teacher_id'] ?? 0;
             $pin = $data['pin'] ?? '';

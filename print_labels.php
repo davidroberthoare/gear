@@ -8,6 +8,7 @@
 $dbFile = __DIR__ . '/gear_kiosk.db';
 
 // Get parameters
+$teacherId = intval($_GET['teacher_id'] ?? 0);  // Teacher ID (required)
 $itemId = $_GET['item'] ?? null;  // Specific item ID (if printing single item)
 $size = intval($_GET['size'] ?? 80);  // QR code size in pixels (default 80)
 $cols = intval($_GET['cols'] ?? 4);   // Number of columns (default 3)
@@ -15,6 +16,9 @@ $rows = intval($_GET['rows'] ?? 0);   // Number of rows (0 = auto)
 $showName = isset($_GET['show_name']) ? $_GET['show_name'] === '1' : false; // Show item name (default false)
 
 // Validate parameters
+if ($teacherId == 0) {
+    die('<html><body><h1>Error: teacher_id parameter is required</h1></body></html>');
+}
 $size = max(40, min(200, $size)); // Between 40 and 200
 $cols = max(1, min(6, $cols));     // Between 1 and 6
 
@@ -25,12 +29,13 @@ try {
     // Fetch items
     if ($itemId) {
         // Single item
-        $stmt = $db->prepare('SELECT * FROM items WHERE item_id = ?');
-        $stmt->execute([$itemId]);
+        $stmt = $db->prepare('SELECT * FROM items WHERE item_id = ? AND teacher_id = ? AND (is_temporary = 0 OR is_temporary IS NULL)');
+        $stmt->execute([$itemId, $teacherId]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         // All items
-        $stmt = $db->query('SELECT * FROM items ORDER BY item_id');
+        $stmt = $db->prepare('SELECT * FROM items WHERE teacher_id = ? AND (is_temporary = 0 OR is_temporary IS NULL) ORDER BY item_id');
+        $stmt->execute([$teacherId]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
@@ -131,14 +136,16 @@ $padding = 15; // Padding in pixels
             padding: <?php echo $padding; ?>px;
             border: 1px solid #ddd;
             border-radius: 8px;
-            text-align: center;
             page-break-inside: avoid;
             break-inside: avoid;
             background: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .label-qr {
-            margin: 0 auto <?php echo $showName ? '10' : '0'; ?>px;
+            flex-shrink: 0;
             width: <?php echo $size; ?>px;
             height: <?php echo $size; ?>px;
         }
@@ -149,16 +156,27 @@ $padding = 15; // Padding in pixels
             display: block;
         }
         
+        .label-text {
+            flex: 1;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+        
         .label-id {
             font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 5px;
+            font-size: <?php echo round($size * 0.36); ?>px;
             color: #333;
+            line-height: <?php echo round($size * 0.4); ?>px;
+            word-wrap: break-word;
         }
         
         .label-name {
-            font-size: 12px;
+            font-size: <?php echo round($size * 0.32); ?>px;
             color: #666;
+            line-height: <?php echo round($size * 0.4); ?>px;
             word-wrap: break-word;
         }
         
@@ -211,10 +229,12 @@ $padding = 15; // Padding in pixels
                 <div class="label-qr">
                     <img src="api.php?action=qr&code=<?php echo urlencode($item['item_id']); ?>" alt="QR Code for <?php echo htmlspecialchars($item['item_id']); ?>">
                 </div>
-                <div class="label-id"><?php echo htmlspecialchars($item['item_id']); ?></div>
-                <?php if ($showName): ?>
-                    <div class="label-name"><?php echo htmlspecialchars($item['name']); ?></div>
-                <?php endif; ?>
+                <div class="label-text">
+                    <div class="label-id"><?php echo htmlspecialchars($item['item_id']); ?></div>
+                    <?php if ($showName): ?>
+                        <div class="label-name"><?php echo htmlspecialchars($item['name']); ?></div>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -222,6 +242,7 @@ $padding = 15; // Padding in pixels
     <script>
         function showSettings() {
             const currentParams = new URLSearchParams(window.location.search);
+            const teacherId = currentParams.get('teacher_id');
             const item = currentParams.get('item') || '';
             const size = prompt('QR Code Size (40-200px):', '<?php echo $size; ?>');
             if (size === null) return;
@@ -232,6 +253,7 @@ $padding = 15; // Padding in pixels
             const showName = confirm('Show item names?');
             
             const params = new URLSearchParams();
+            if (teacherId) params.set('teacher_id', teacherId);
             if (item) params.set('item', item);
             params.set('size', Math.max(40, Math.min(200, parseInt(size) || 80)));
             params.set('cols', Math.max(1, Math.min(6, parseInt(cols) || 3)));
