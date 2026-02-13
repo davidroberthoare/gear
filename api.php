@@ -136,6 +136,46 @@ try {
             
             echo json_encode(['success' => true]);
             break;
+            
+        case 'delete_student':
+            $id = $data['id'] ?? 0;
+            $teacherId = $data['teacher_id'] ?? 0;
+            
+            if ($id == 0 || $teacherId == 0) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                break;
+            }
+            
+            // Get student info first
+            $stmt = $db->prepare('SELECT name FROM students WHERE id = ? AND teacher_id = ?');
+            $stmt->execute([$id, $teacherId]);
+            $student = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$student) {
+                echo json_encode(['success' => false, 'error' => 'Student not found']);
+                break;
+            }
+            
+            // Check if student has items checked out
+            $stmt = $db->prepare('SELECT COUNT(*) as count FROM items WHERE teacher_id = ? AND current_user = ? AND status = ?');
+            $stmt->execute([$teacherId, $student['name'], 'out']);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] > 0) {
+                echo json_encode(['success' => false, 'error' => 'Student has items checked out']);
+                break;
+            }
+            
+            // Delete student's log entries
+            $stmt = $db->prepare('DELETE FROM logs WHERE teacher_id = ? AND student = ?');
+            $stmt->execute([$teacherId, $student['name']]);
+            
+            // Delete student
+            $stmt = $db->prepare('DELETE FROM students WHERE id = ? AND teacher_id = ?');
+            $stmt->execute([$id, $teacherId]);
+            
+            echo json_encode(['success' => true]);
+            break;
 
         case 'qr':
             $code = $_GET['code'] ?? '';

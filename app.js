@@ -632,10 +632,20 @@ function renderAdminPanel() {
         const tempBadge = student.is_temporary == 1 ? '<span style="font-size: 0.6rem; background: #fbbf24; color: #78350f; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">ONE-TIME</span>' : '';
         const $student = $(`
             <div class="admin-item">
-                <span class="admin-item-name">${student.name}${tempBadge}</span>
-                <span class="student-pin">PIN: ${student.pin}</span>
+                <div class="admin-item-info">
+                    <span class="admin-item-name">${student.name}${tempBadge}</span>
+                    <span class="student-pin">PIN: ${student.pin}</span>
+                </div>
+                <div class="admin-item-actions">
+                    <button class="btn-icon-small delete" data-id="${student.id}">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
             </div>
         `);
+        
+        $student.find('.delete').click(() => deleteStudent(student.id));
+        
         $studentsList.append($student);
     });
     
@@ -1224,6 +1234,45 @@ function deleteItem(id) {
         },
         error: function() {
             alert('Error deleting item');
+        }
+    });
+}
+
+// Delete student
+function deleteStudent(id) {
+    const student = state.students.find(s => s.id === id);
+    if (!student) return;
+    
+    // Check if student has any items checked out
+    const hasItemsOut = state.items.some(item => item.status === 'out' && item.current_user === student.name);
+    
+    if (hasItemsOut) {
+        alert('Cannot delete student. They still have items checked out. Please return all items first.');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${student.name}?\n\nThis will also delete all activity records associated with this student.`)) {
+        return;
+    }
+    
+    $.ajax({
+        url: API_URL,
+        method: 'POST',
+        data: JSON.stringify({
+            action: 'delete_student',
+            id: id,
+            teacher_id: state.currentTeacher.id
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                loadData();
+            } else {
+                alert('Error deleting student: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function() {
+            alert('Error deleting student');
         }
     });
 }
