@@ -424,13 +424,8 @@ function loginAsTeacher(teacher) {
 }
 
 function handleLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        stopQRScanner();
-        state.currentTeacher = null;
-        localStorage.removeItem('currentTeacher');
-        showLogin();
-        state.view = 'dashboard';
-    }
+    // Show teacher PIN verification modal
+    showModal('logout_confirm');
 }
 
 function showLoginError(message) {
@@ -692,6 +687,11 @@ function showModal(type) {
         $('#modalSubtitle').text('Enter your 5-digit code to continue');
         $modalIcon.addClass('admin');
         $modalIcon.html('<i data-lucide="lock"></i>');
+    } else if (type === 'logout_confirm') {
+        $('#modalTitle').text('Confirm Logout');
+        $('#modalSubtitle').text('Enter your teacher PIN to logout');
+        $modalIcon.addClass('teacher');
+        $modalIcon.html('<i data-lucide="log-out"></i>');
     } else if (type === 'teacher_auth' || type === 'teacher_auth_all') {
         $('#modalTitle').text('Teacher PIN');
         $('#modalSubtitle').text('Enter your 5-digit code to continue');
@@ -734,12 +734,28 @@ function handleSubmit() {
     
     if (state.modalType === 'admin_login') {
         handleAdminLogin(pin);
+    } else if (state.modalType === 'logout_confirm') {
+        handleLogoutConfirm(pin);
     } else if (state.modalType === 'pin_entry') {
         handlePinEntry(pin);
     } else if (state.modalType === 'teacher_auth') {
         handleTeacherAuth(pin);
     } else if (state.modalType === 'teacher_auth_all') {
         handleTeacherAuthAll(pin);
+    }
+}
+
+// Handle logout confirmation
+function handleLogoutConfirm(pin) {
+    if (pin === state.currentTeacher.pin) {
+        closeModal();
+        stopQRScanner();
+        state.currentTeacher = null;
+        localStorage.removeItem('currentTeacher');
+        showLogin();
+        state.view = 'dashboard';
+    } else {
+        showError('Incorrect PIN');
     }
 }
 
