@@ -585,7 +585,8 @@ function showModal(type) {
         $modalIcon.html('<i data-lucide="shield-check"></i>');
     } else if (type === 'pin_entry') {
         $('#modalTitle').text('Confirm ID');
-        $('#modalSubtitle').text(`Preparing checkout for ${state.activeItem.item_id}`);
+        const actionLabel = state.activeItem && state.activeItem.status === 'out' ? 'Returning' : 'Checking out';
+        $('#modalSubtitle').text(`${actionLabel} ${state.activeItem.item_id}`);
         $modalIcon.html('<i data-lucide="qr-code"></i>');
     }
     
@@ -640,6 +641,41 @@ function handleAdminLogin(pin) {
 
 // Handle PIN entry for checkout/return
 function handlePinEntry(pin) {
+    const item = state.activeItem;
+    
+    // If returning gear and teacher PIN is used, bypass pending state
+    if (item && item.status === 'out' && pin === state.currentTeacher.pin) {
+        if (item.is_temporary == 1) {
+            deleteItemAfterReturn(item, { name: 'Teacher' });
+            return;
+        }
+
+        $.ajax({
+            url: API_URL,
+            method: 'POST',
+            data: JSON.stringify({
+                action: 'update_item',
+                id: item.id,
+                status: 'available',
+                current_user: null
+            }),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    addLog(item.item_id, 'Teacher', 'Returned (Teacher)');
+                    closeModal();
+                    loadData();
+                } else {
+                    showError('Update failed');
+                }
+            },
+            error: function() {
+                showError('Update failed');
+            }
+        });
+        return;
+    }
+
     // Verify student PIN
     const student = state.students.find(s => s.pin === pin);
     
@@ -648,7 +684,6 @@ function handlePinEntry(pin) {
         return;
     }
     
-    const item = state.activeItem;
     let newStatus, newUser, action;
     
     if (item.status === 'available') {

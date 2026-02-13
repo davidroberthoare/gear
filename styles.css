@@ -425,8 +425,16 @@ body {
     box-shadow: 0 0 0 4px #fed7aa;
 }
 
+.item-card.available {
+    border-color: #22c55e;
+    background: #f0fdf4;
+}
+
 .item-card.out {
-    opacity: 0.8;
+    opacity: 0.75;
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #64748b;
 }
 
 .item-id {
