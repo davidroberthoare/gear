@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script type="module" src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js"></script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -52,7 +52,7 @@
                 </div>
                 <!-- QR Scanner Preview -->
                 <div id="qr-scanner-container" class="qr-scanner-container">
-                    <div id="qr-reader"></div>
+                    <video id="qr-video" muted playsinline></video>
                 </div>
             </div>
             <div class="header-right">
@@ -190,6 +190,11 @@
                     maxlength="5" 
                     placeholder="•••••" 
                     class="pin-input"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
                 >
                 
                 <p id="errorMessage" class="error-message" style="display: none;"></p>

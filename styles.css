@@ -300,6 +300,7 @@ body {
     border: 3px solid transparent;
     transition: border-color 0.3s ease;
     margin-left: 1rem;
+    height: 5rem;
 }
 
 .qr-scanner-container.polling {
@@ -339,14 +340,15 @@ body {
     border: none;
 }
 
-#qr-reader video {
+#qr-reader video,
+#qr-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-#qr-reader__dashboard {
+#qr-video {\n    width: 120px;\n    height: 80px;\n    object-fit: cover;\n    display: block;\n}\n\n#qr-reader__dashboard {
     display: none !important;
 }
 

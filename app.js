@@ -52,7 +52,7 @@ $(document).ready(function() {
 });
 
 // Initialize QR Scanner
-function initQRScanner() {
+async function initQRScanner() {
     if (!state.currentTeacher) {
         console.log('❌ QR Scanner: Cannot initialize - no teacher logged in');
         return;
@@ -61,58 +61,52 @@ function initQRScanner() {
     console.log('🎥 QR Scanner: Initializing...');
     console.log('📊 QR Scanner: Current items count:', state.items.length);
     
-    // Create scanner instance
-    qrScanner = new Html5Qrcode("qr-reader");
-    console.log('✅ QR Scanner: Html5Qrcode instance created');
+    const videoElement = document.getElementById('qr-video');
+    if (!videoElement) {
+        console.error('❌ QR Scanner: Video element not found');
+        return;
+    }
     
-    const config = {
-        fps: 5, // Reduced from 10 to minimize performance warnings
-        // qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.777778
-    };
-    console.log('⚙️ QR Scanner: Config:', config);
-    
-    // Start scanning
-    console.log('📷 QR Scanner: Attempting to start with front camera...');
-    qrScanner.start(
-        { facingMode: "user" }, // Use front camera (iPad default)
-        config,
-        onQRCodeScanned,
-        onScanError
-    ).then(() => {
-        console.log('✅ QR Scanner: Started successfully with front camera');
-        console.log('🔄 QR Scanner: Now scanning at', config.fps, 'FPS');
+    // Import QrScanner dynamically
+    try {
+        // Create scanner instance
+        const QrScanner = window.QrScanner || (await import('https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js')).default;
+        console.log('✅ QR Scanner: QrScanner library loaded');
+        
+        qrScanner = new QrScanner(
+            videoElement,
+            result => onQRCodeScanned(result.data, result),
+            {
+                returnDetailedScanResult: true,
+                highlightScanRegion: true,
+                highlightCodeOutline: true,
+                maxScansPerSecond: 5,
+                preferredCamera: 'user' // Front camera for iPad
+            }
+        );
+        
+        console.log('✅ QR Scanner: QrScanner instance created');
+        console.log('📷 QR Scanner: Starting camera...');
+        
+        await qrScanner.start();
+        console.log('✅ QR Scanner: Camera started successfully');
+        console.log('🔄 QR Scanner: Now scanning at 5 scans/second');
         $('#qr-scanner-container').addClass('polling');
-    }).catch(err => {
-        console.error('❌ QR Scanner: Failed to start with front camera:', err);
-        console.log('🔄 QR Scanner: Trying back camera as fallback...');
-        // Try with back camera if front camera fails
-        qrScanner.start(
-            { facingMode: "environment" },
-            config,
-            onQRCodeScanned,
-            onScanError
-        ).then(() => {
-            console.log('✅ QR Scanner: Started successfully with back camera');
-            $('#qr-scanner-container').addClass('polling');
-        }).catch(err2 => {
-            console.error('❌ QR Scanner: Failed with both cameras:', err2);
-            $('#qr-scanner-container').removeClass('polling');
-        });
-    });
+        
+    } catch (err) {
+        console.error('❌ QR Scanner: Failed to initialize:', err);
+        $('#qr-scanner-container').removeClass('polling');
+    }
 }
 
 // Stop QR Scanner
 function stopQRScanner() {
     console.log('🛑 QR Scanner: Stop requested');
-    if (qrScanner && qrScanner.isScanning) {
+    if (qrScanner) {
         console.log('🛑 QR Scanner: Stopping active scanner...');
-        qrScanner.stop().then(() => {
-            console.log('✅ QR Scanner: Stopped successfully');
-            $('#qr-scanner-container').removeClass('polling detected');
-        }).catch(err => {
-            console.error('❌ QR Scanner: Error stopping:', err);
-        });
+        qrScanner.stop();
+        console.log('✅ QR Scanner: Stopped successfully');
+        $('#qr-scanner-container').removeClass('polling detected');
     } else {
         console.log('⚠️ QR Scanner: No active scanner to stop');
     }
@@ -174,24 +168,6 @@ function onQRCodeScanned(decodedText, decodedResult) {
     }
 }
 
-// Handle Scan Errors (mostly just verbose logging we can ignore)
-function onScanError(error) {
-    // Ignore common scanning errors (nothing detected yet)
-    // These are normal when no QR code is in view
-    const ignoredErrors = [
-        'NotFoundException',
-        'No MultiFormat Readers',
-        'QR code parse error'
-    ];
-    
-    const shouldIgnore = ignoredErrors.some(msg => error && error.includes(msg));
-    
-    if (error && !shouldIgnore) {
-        console.debug('⚠️ QR Scanner: Non-critical error:', error);
-    }
-    // Uncomment below for full verbose logging of all scan attempts:
-    // console.debug('🔄 QR Scanner: Poll attempt (no code detected)');
-}
 
 // Show/Hide screens
 function showLogin() {
@@ -614,7 +590,14 @@ function showModal(type) {
     }
     
     $('#modalOverlay').show();
-    $('#pinInput').focus();
+    
+    // Delayed focus for mobile keyboard activation
+    setTimeout(() => {
+        const $input = $('#pinInput');
+        $input.focus();
+        // Trigger click to ensure keyboard appears on iOS/iPad
+        $input[0].click();
+    }, 100);
     
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
