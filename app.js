@@ -241,6 +241,23 @@ function setupEventListeners() {
         // No duplicate check needed for login screen
         $('#loginPin').removeClass('pin-duplicate pin-valid');
     });
+
+    // Header
+    $('#logoText').click(() => showView('dashboard'));
+    $('#adminBtn').click(() => showModal('admin_login'));
+    $('#logoutBtn').click(handleLogout);
+    $('#verifyAllBtn').click(() => showModal('teacher_auth_all'));
+
+    // One-Time Checkout Modal
+    $('#oneTimeBtn').click(showOneTimeModal);
+    $('#oneTimeCancelBtn').click(closeOneTimeModal);
+    $('#oneTimeSubmitBtn').click(handleOneTimeSubmit);
+    $('#oneTimeItemName, #oneTimeStudentName, #oneTimeTeacherPin').on('input', hideOneTimeError);
+
+    // Admin Panel
+    $('#closeAdminBtn').click(() => showView('dashboard'));
+    $('#printAllBtn').click(printAll);
+    $('#addItemBtn').click(addItem);
     $('#addStudentBtn').click(addStudent);
 
     // Activity filter
