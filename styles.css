@@ -308,6 +308,11 @@ body {
     color: #1e40af;
 }
 
+.badge-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
 /* Items Grid */
 .inventory-section {
     display: flex;

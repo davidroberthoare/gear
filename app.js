@@ -459,11 +459,14 @@ function renderDashboard() {
     
     $('#availableCount').text(availableCount);
     $('#outCount').text(outCount);
+    $('#pendingCount').text(pendingCount);
     
-    // Show/hide verify all button
+    // Show/hide pending badge and verify all button
     if (pendingCount > 0) {
+        $('#pendingBadge').show();
         $('#verifyAllBtn').show();
     } else {
+        $('#pendingBadge').hide();
         $('#verifyAllBtn').hide();
     }
     
