@@ -1,7 +1,7 @@
 # Gear Kiosk
 
 ## Overview
-Gear Kiosk has been upgraded to support multiple teachers/classrooms with separate accounts and data isolation. Each teacher can now manage their own inventory, students, and checkouts independently.
+Gear Kiosk is a simple equipment management/sign-out system for our CommTech lab. Each teacher can now manage their own inventory, students, and checkouts independently.
 
 ## Key Features
 
