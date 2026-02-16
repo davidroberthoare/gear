@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gear Kiosk</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+    <script type="module" src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo-icon">
+                    <i data-lucide="camera"></i>
+                </div>
+                <h1>Gear Kiosk</h1>
+                <p>Multi-Classroom Equipment Management</p>
+            </div>
+            
+            <div class="login-form">
+                <h2 id="loginTitle">Teacher Login</h2>
+                <div class="input-group">
+                    <input type="text" id="loginUsername" placeholder="Username" class="login-input">
+                </div>
+                <div class="input-group">
+                    <input type="password" id="loginPin" placeholder="4-Digit PIN" maxlength="4" class="login-input" inputmode="numeric">
+                </div>
+                <p id="loginError" class="error-message" style="display: none;"></p>
+                <button id="loginBtn" class="btn-login">Login</button>
+                <div class="login-divider">
+                    <span>or</span>
+                </div>
+                <button id="createAccountBtn" class="btn-create-account">Create New Classroom</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="app-container" id="appContainer" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <i data-lucide="camera"></i>
+                </div>
+                <div class="logo-text" id="logoText">
+                    <h1>Gear Kiosk</h1>
+                    <p id="teacherName">Cloud Session Active</p>
+                </div>
+                <!-- QR Scanner Preview -->
+                <div id="qr-scanner-container" class="qr-scanner-container">
+                    <video id="qr-video" muted playsinline></video>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="verifyAllBtn" class="btn-verify-all" style="display: none;">
+                    Verify All Pending
+                </button>
+                <button id="oneTimeBtn" class="btn-icon" title="One-Time Checkout">
+                    <i data-lucide="alert-circle"></i>
+                </button>
+                <button id="adminBtn" class="btn-icon">
+                    <i data-lucide="settings"></i>
+                </button>
+                <button id="logoutBtn" class="btn-icon" title="Logout">
+                    <i data-lucide="log-out"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view">
+                <div class="dashboard-grid">
+                    <!-- Inventory Section -->
+                    <section class="inventory-section">
+                        <div class="section-header">
+                            <h2>Current Inventory</h2>
+                            <div class="status-badges">
+                                <div class="badge badge-available">
+                                    <span id="availableCount">0</span> Available
+                                </div>
+                                <div class="badge badge-out">
+                                    <span id="outCount">0</span> Out
+                                </div>
+                                <div class="badge badge-pending" id="pendingBadge" style="display: none;">
+                                    <span id="pendingCount">0</span> Pending
+                                </div>
+                            </div>
+                        </div>
+                        <div class="items-grid" id="itemsGrid"></div>
+                    </section>
+
+                    <!-- Activity Section -->
+                    <section class="activity-section">
+                        <div class="activity-log">
+                            <div class="section-header">
+                                <h2>Recent Activity</h2>
+                                <input type="text" id="activitySearch" class="activity-search" placeholder="Search...">
+                            </div>
+                            <div class="log-container" id="logContainer">
+                                <div class="log-empty">No logs yet</div>
+                            </div>
+                        </div>
+                        <div class="teacher-tip">
+                            <p id="tipText"></p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Admin Panel View -->
+            <div id="adminView" class="view" style="display: none;">
+                <div class="admin-header">
+                    <div>
+                        <h2>Teacher Panel</h2>
+                        <p>Manage equipment and student access</p>
+                    </div>
+                    <div class="admin-actions">
+                        <button id="printAllBtn" class="btn-print-all">
+                            <i data-lucide="printer"></i> Print All Labels
+                        </button>
+                        <button id="closeAdminBtn" class="btn-icon">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-grid">
+                    <!-- Inventory Management -->
+                    <section class="admin-section">
+                        <h3>
+                            <i data-lucide="camera"></i> Inventory
+                        </h3>
+                        <div class="admin-form">
+                            <input type="text" id="newItemId" placeholder="ID" class="input-small">
+                            <input type="text" id="newItemName" placeholder="Item Name" class="input-flex">
+                            <button id="addItemBtn" class="btn-add">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                        <div class="admin-list" id="adminItemsList"></div>
+                    </section>
+
+                    <!-- Student Management -->
+                    <section class="admin-section">
+                        <h3>
+                            <i data-lucide="user"></i> Student Roster
+                            <button id="bulkImportBtn" class="btn-icon-small" title="Bulk Import from CSV/TSV" style="margin-left: auto;">
+                                <i data-lucide="clipboard"></i>
+                            </button>
+                        </h3>
+                        <div class="admin-form">
+                            <input type="text" id="newStudentName" placeholder="Full Name" class="input-flex">
+                            <input type="text" id="newStudentPin" placeholder="4-Digit PIN" class="input-medium" maxlength="4" inputmode="numeric">
+                            <button id="addStudentBtn" class="btn-add-student">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                        <div class="admin-list" id="adminStudentsList"></div>
+                    </section>
+                </div>
+
+                <!-- Classroom Settings -->
+                <section class="admin-section settings-section">
+                    <h3>
+                        <i data-lucide="shield-alert"></i> Classroom Settings
+                    </h3>
+                    
+                    <div class="settings-group">
+                        <div class="settings-item">
+                            <div class="settings-label">
+                                <i data-lucide="user-circle"></i>
+                                <span>Change Teacher ID (Username)</span>
+                            </div>
+                            <div class="settings-form">
+                                <input type="text" id="newTeacherUsername" placeholder="New Username" class="input-medium">
+                                <input type="password" id="confirmPinForUsername" placeholder="Confirm PIN" class="input-medium" maxlength="4" inputmode="numeric">
+                                <button id="changeUsernameBtn" class="btn-change-pin">
+                                    Update Username
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-item">
+                            <div class="settings-label">
+                                <i data-lucide="lock"></i>
+                                <span>Change Teacher PIN</span>
+                            </div>
+                            <div class="settings-form">
+                                <input type="password" id="currentPin" placeholder="Current PIN" class="input-medium" maxlength="4" inputmode="numeric">
+                                <input type="password" id="newPin" placeholder="New PIN" class="input-medium" maxlength="4" inputmode="numeric">
+                                <input type="password" id="confirmNewPin" placeholder="Confirm PIN" class="input-medium" maxlength="4" inputmode="numeric">
+                                <button id="changePinBtn" class="btn-change-pin">
+                                    Update PIN
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group danger-zone">
+                        <div class="settings-item">
+                            <div class="settings-label danger">
+                                <i data-lucide="trash-2"></i>
+                                <span>Delete Classroom</span>
+                            </div>
+                            <p class="danger-warning">
+                                ⚠️ This will permanently delete your classroom account, all inventory items, all students, and all activity records. This action cannot be undone!
+                            </p>
+                            <button id="deleteClassroomBtn" class="btn-delete-classroom">
+                                Delete Entire Classroom
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-icon" id="modalIcon">
+                <i data-lucide="qr-code"></i>
+            </div>
+            
+            <div class="modal-content">
+                <h2 id="modalTitle">Confirm ID</h2>
+                <p id="modalSubtitle">Enter your 4-digit code to continue</p>
+            </div>
+
+            <div class="modal-input-section">
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    maxlength="4" 
+                    placeholder="••••" 
+                    class="pin-input"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                >
+                
+                <!-- Mobile Number Pad -->
+                <div id="mobileNumberPad" class="mobile-number-pad" style="display: none;">
+                    <div class="number-pad-grid">
+                        <button type="button" class="num-btn" data-value="1">1</button>
+                        <button type="button" class="num-btn" data-value="2">2</button>
+                        <button type="button" class="num-btn" data-value="3">3</button>
+                        <button type="button" class="num-btn" data-value="4">4</button>
+                        <button type="button" class="num-btn" data-value="5">5</button>
+                        <button type="button" class="num-btn" data-value="6">6</button>
+                        <button type="button" class="num-btn" data-value="7">7</button>
+                        <button type="button" class="num-btn" data-value="8">8</button>
+                        <button type="button" class="num-btn" data-value="9">9</button>
+                        <button type="button" class="num-btn num-btn-clear" data-value="clear">
+                            <i data-lucide="rotate-ccw"></i>
+                        </button>
+                        <button type="button" class="num-btn" data-value="0">0</button>
+                        <button type="button" class="num-btn num-btn-backspace" data-value="backspace">
+                            <i data-lucide="arrow-left"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <p id="errorMessage" class="error-message" style="display: none;"></p>
+                
+                <button id="submitBtn" class="btn-submit">Submit Code</button>
+                
+                <button id="cancelBtn" class="btn-cancel">Cancel & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="oneTimeModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal one-time-modal">
+            <div class="modal-icon teacher">
+                <i data-lucide="alert-circle"></i>
+            </div>
+
+            <div class="modal-content">
+                <h2>One-Time Checkout</h2>
+                <p>Create one-time records with teacher approval</p>
+            </div>
+
+            <div class="modal-input-section">
+                <div class="one-time-inputs">
+                    <input type="text" id="oneTimeItemName" placeholder="Item Name or ID" class="input-flex">
+                    <input type="text" id="oneTimeStudentName" placeholder="Student Name" class="input-flex">
+                    <input
+                        type="password"
+                        id="oneTimeTeacherPin"
+                        maxlength="4"
+                        placeholder="Teacher PIN"
+                        class="one-time-pin"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >
+                </div>
+
+                <p id="oneTimeError" class="error-message" style="display: none;"></p>
+
+                <button id="oneTimeSubmitBtn" class="btn-submit">Submit</button>
+                <button id="oneTimeCancelBtn" class="btn-cancel">Cancel & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="bulkImportModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal bulk-import-modal">
+            <div class="modal-icon">
+                <i data-lucide="clipboard"></i>
+            </div>
+
+            <div class="modal-content">
+                <h2>Bulk Import Students</h2>
+                <p>Paste CSV or TSV data (Name, PIN format)</p>
+            </div>
+
+            <div class="modal-input-section">
+                <textarea 
+                    id="bulkImportText" 
+                    placeholder="Example:&#10;John Doe	12345&#10;Jane Smith	67890&#10;&#10;Or with commas:&#10;John Doe,12345&#10;Jane Smith,67890"
+                    class="bulk-import-textarea"
+                    rows="10"
+                ></textarea>
+
+                <p id="bulkImportError" class="error-message" style="display: none;"></p>
+                <p id="bulkImportInfo" class="info-message" style="display: none;"></p>
+
+                <button id="bulkImportSubmitBtn" class="btn-submit">Import Students</button>
+                <button id="bulkImportCancelBtn" class="btn-cancel">Cancel & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Photography tips rotation
+        const photographyTips = [
+            "Check the battery level before returning your camera to the cabinet.",
+            "Format your SD card before starting a new project to avoid errors.",
+            "Use the rule of thirds: place your subject off-center for more dynamic compositions.",
+            "Natural light from a window often produces better results than overhead fluorescent lighting.",
+            "Always check your focus before and after taking important shots.",
+            "Take multiple shots of the same subject from different angles - experiment!",
+            "Clean the lens with a proper microfiber cloth, never a shirt or paper towel.",
+            "ISO 100-400 works best in bright conditions; increase ISO in darker environments.",
+            "Turn off the flash for more natural-looking portraits near windows.",
+            "Review your shots on the camera's screen before returning equipment.",
+            "Keep your shutter speed at least 1/focal length to avoid camera shake (e.g., 1/50 for 50mm).",
+            "Use wider apertures (lower f-numbers like f/2.8) to create beautiful background blur.",
+            "Golden hour (sunrise/sunset) provides the most flattering natural light for photography.",
+            "Always use the camera strap around your neck or wrist to prevent drops.",
+            "Look for leading lines that draw the viewer's eye through your image.",
+            "Use negative space to give your subject room to breathe and create minimalist compositions.",
+            "Frame your subject using elements like doorways, windows, or tree branches.",
+            "Experiment with symmetry - centered compositions can be powerful when done intentionally.",
+            "Change your perspective: shoot from high above or down low for unique viewpoints.",
+            "Include foreground interest to add depth and lead viewers into your image.",
+            "In editing: adjust white balance first to ensure accurate colors in your image.",
+            "Don't over-edit: subtle adjustments usually look more professional than heavy filters.",
+            "Increase contrast slightly to make your images pop, but avoid crushing blacks or blowing highlights.",
+            "Use the crop tool to improve composition - you don't have to keep everything you shot.",
+            "Adjust exposure in post if needed, but try to get it right in-camera first.",
+            "Sharpen your images as the final step in editing, not the first.",
+            "Watch your histogram: keep most data in the middle range to preserve detail.",
+            "Use spot metering to expose for your subject when backgrounds are very bright or dark."
+        ];
+        
+        let currentTipIndex = 0;
+        
+        function rotateTip() {
+            const tipElement = document.getElementById('tipText');
+            if (!tipElement) return;
+            
+            // Fade out
+            tipElement.style.opacity = '0';
+            
+            setTimeout(() => {
+                // Change tip
+                currentTipIndex = (currentTipIndex + 1) % photographyTips.length;
+                tipElement.textContent = 'Tip: ' + photographyTips[currentTipIndex];
+                
+                // Fade in
+                tipElement.style.opacity = '1';
+            }, 500); // Wait for fade out to complete
+        }
+        
+        // Start rotation after page loads
+        rotateTip(); // Show first tip immediately
+        window.addEventListener('load', () => {
+            setInterval(rotateTip, 10000); // Change every 10 seconds
+        });
+    </script>
+    <script src="app.js?v=2.0.2"></script>
+</body>
+</html>
