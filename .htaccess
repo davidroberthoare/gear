@@ -1,0 +1,5 @@
+AddType application/manifest+json .webmanifest
+
+<FilesMatch "^(sw\.js|site\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+</FilesMatch>

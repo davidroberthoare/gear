@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "Gear Kiosk",
+  "short_name": "Gear Kiosk",
+  "description": "A classroom equipment kiosk for managing inventory, student access, and equipment checkouts.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#f1f5f9",
+  "icons": [
+    {
+      "src": "img/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

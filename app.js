@@ -28,6 +28,8 @@ const SCAN_COOLDOWN = 2000; // 1 second cooldown between scans
 // Initialize Application
 $(document).ready(function() {
     console.log('Gear Kiosk initializing...');
+
+    registerServiceWorker();
     
     // Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
@@ -57,6 +59,20 @@ $(document).ready(function() {
         }
     }, 15000);
 });
+
+function registerServiceWorker() {
+    const isSecureContext = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+
+    if (!('serviceWorker' in navigator) || !isSecureContext) {
+        return;
+    }
+
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch((error) => {
+            console.error('Service worker registration failed:', error);
+        });
+    });
+}
 
 // Initialize QR Scanner
 async function initQRScanner() {
