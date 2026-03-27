@@ -12,13 +12,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Database file
-$dbFile = __DIR__ . '/gear_kiosk.db';
+// Load environment variables from .env file
+function loadEnv($path) {
+    if (!file_exists($path)) {
+        return false;
+    }
+    
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue; // Skip comments
+        }
+        
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+        
+        if (!array_key_exists($name, $_ENV)) {
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
+    return true;
+}
+
+// Load .env file
+loadEnv(__DIR__ . '/.env');
+
+// Get database credentials
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_NAME') ?: 'gear_dev';
+$dbUser = getenv('DB_USER') ?: 'root';
+$dbPass = getenv('DB_PASSWORD') ?: '';
+$dbCharset = getenv('DB_CHARSET') ?: 'utf8mb4';
 
 // Initialize database connection
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $dsn = "mysql:host=$dbHost;dbname=$dbName;charset=$dbCharset";
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ];
+    $db = new PDO($dsn, $dbUser, $dbPass, $options);
     
     // Create tables if they don't exist
     initializeDatabase($db);
@@ -147,7 +184,7 @@ try {
                     AND NOT EXISTS (
                         SELECT 1 FROM items 
                         WHERE items.teacher_id = students.teacher_id 
-                        AND items.current_user = students.name 
+                        AND items.`current_user` = students.name 
                         AND items.status = ?
                     )');
                 $stmt->execute([$teacherId, 'out']);
@@ -157,7 +194,7 @@ try {
             }
             
             // Normal update
-            $stmt = $db->prepare('UPDATE items SET status = ?, current_user = ? WHERE id = ?');
+            $stmt = $db->prepare('UPDATE items SET status = ?, `current_user` = ? WHERE id = ?');
             $stmt->execute([$status, $currentUser, $id]);
             
             // If status changed to 'available', clean up temporary students
@@ -168,7 +205,7 @@ try {
                     AND NOT EXISTS (
                         SELECT 1 FROM items 
                         WHERE items.teacher_id = students.teacher_id 
-                        AND items.current_user = students.name 
+                        AND items.`current_user` = students.name 
                         AND items.status = ?
                     )');
                 $stmt->execute([$teacherId, 'out']);
@@ -206,7 +243,7 @@ try {
             }
             
             // Check if student has items checked out
-            $stmt = $db->prepare('SELECT COUNT(*) as count FROM items WHERE teacher_id = ? AND current_user = ? AND status = ?');
+            $stmt = $db->prepare('SELECT COUNT(*) as count FROM items WHERE teacher_id = ? AND `current_user` = ? AND status = ?');
             $stmt->execute([$teacherId, $student['name'], 'out']);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -291,7 +328,7 @@ try {
                 break;
             }
             
-            $stmt = $db->prepare('UPDATE items SET status = ?, current_user = ? WHERE status = ? AND teacher_id = ?');
+            $stmt = $db->prepare('UPDATE items SET status = ?, `current_user` = ? WHERE status = ? AND teacher_id = ?');
             $stmt->execute(['available', null, 'pending', $teacherId]);
             
             echo json_encode(['success' => true]);
@@ -326,7 +363,7 @@ try {
                 AND NOT EXISTS (
                     SELECT 1 FROM items 
                     WHERE items.teacher_id = students.teacher_id 
-                    AND items.current_user = students.name 
+                    AND items.`current_user` = students.name 
                     AND items.status = ?
                 )');
             $stmt->execute([$teacherId, 'out']);
@@ -496,47 +533,54 @@ try {
 function initializeDatabase($db) {
     // Teachers table
     $db->exec("CREATE TABLE IF NOT EXISTS teachers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        pin TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-    )");
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        pin VARCHAR(255) NOT NULL,
+        created_at BIGINT NOT NULL,
+        INDEX idx_username (username)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Items table (now with teacher_id)
     $db->exec("CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teacher_id INTEGER NOT NULL,
-        item_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        status TEXT DEFAULT 'available',
-        current_user TEXT,
-        is_temporary INTEGER DEFAULT 0,
-        FOREIGN KEY (teacher_id) REFERENCES teachers(id),
-        UNIQUE(teacher_id, item_id)
-    )");
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        teacher_id INT NOT NULL,
+        item_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        status VARCHAR(50) DEFAULT 'available',
+        `current_user` VARCHAR(255),
+        is_temporary TINYINT(1) DEFAULT 0,
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_teacher_item (teacher_id, item_id),
+        INDEX idx_teacher_id (teacher_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Students table (now with teacher_id)
     $db->exec("CREATE TABLE IF NOT EXISTS students (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teacher_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        pin TEXT NOT NULL,
-        is_temporary INTEGER DEFAULT 0,
-        FOREIGN KEY (teacher_id) REFERENCES teachers(id),
-        UNIQUE(teacher_id, pin)
-    )");
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        teacher_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        pin VARCHAR(255) NOT NULL,
+        is_temporary TINYINT(1) DEFAULT 0,
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_teacher_pin (teacher_id, pin),
+        INDEX idx_teacher_id (teacher_id),
+        INDEX idx_name (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Logs table (now with teacher_id)
     $db->exec("CREATE TABLE IF NOT EXISTS logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teacher_id INTEGER NOT NULL,
-        item TEXT NOT NULL,
-        student TEXT NOT NULL,
-        action TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        time_str TEXT NOT NULL,
-        FOREIGN KEY (teacher_id) REFERENCES teachers(id)
-    )");
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        teacher_id INT NOT NULL,
+        item VARCHAR(255) NOT NULL,
+        student VARCHAR(255) NOT NULL,
+        action VARCHAR(255) NOT NULL,
+        timestamp BIGINT NOT NULL,
+        time_str VARCHAR(50) NOT NULL,
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+        INDEX idx_teacher_id (teacher_id),
+        INDEX idx_timestamp (timestamp)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
 function getAllItems($db, $teacherId = null) {
