@@ -3,6 +3,12 @@
 ## Overview
 Gear Kiosk is a simple equipment management/sign-out system for our CommTech lab. Each teacher can now manage their own inventory, students, and checkouts independently.
 
+
+## Branches
+- "main" branch requires a mysql server (for improved multi-tenancy) and also works as a PWA. All future development will be in this branch.
+- "sqlite" branch is self-contained, running on sqlite. It works fine, but development has paused on this branch.
+
+
 ## Key Features
 
 ### 1. **Multi-Tenant Architecture**
