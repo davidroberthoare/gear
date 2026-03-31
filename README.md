@@ -53,11 +53,4 @@ Security is best-effort and intentionally lightweight for a school/lab use case;
 This app does not include analytics, ad trackers, or any intentional data collection of personal usage data.
 
 ## License
-
-This project is released under **The Unlicense**.
-
-You may use, copy, modify, distribute, and sell this software, in source or binary form, for any purpose, with or without attribution.
-
-In jurisdictions where public domain dedication is not recognized, this project is provided under terms equivalent to an unrestricted permissive license.
-
-See the `LICENSE` file for the full text.
+See the `LICENSE` file for Creative Commons details.
