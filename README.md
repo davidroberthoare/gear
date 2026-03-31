@@ -3,6 +3,8 @@
 ## Overview
 Gear Kiosk is a simple equipment management/sign-out system for our CommTech lab. Each teacher can now manage their own inventory, students, and checkouts independently.
 
+A working free version for public use is available here: https://gear.drhmedia.net/ or you can host your own.
+
 
 ## Branches
 - "main" branch requires a mysql server (for improved multi-tenancy) and also works as a PWA. All future development will be in this branch.
@@ -37,7 +39,25 @@ Gear Kiosk is a simple equipment management/sign-out system for our CommTech lab
 
 ## Technical Details
 
-- **Database**: SQLite with multi-tenant schema
-- **Frontend**: Vanilla JavaScript with jQuery
+- **Database**: MySQL or SQLite with multi-tenant schema
+- **Frontend**: Vanilla JavaScript with jQuery, PWA-installable
 - **Backend**: PHP 7.4+
 - **Storage**: localStorage for session persistence
+
+## Live Version Notice
+
+The public live version at https://gear.drhmedia.net/ is provided as-is and is not guaranteed for uptime, availability, or fitness for any particular purpose.
+
+Security is best-effort and intentionally lightweight for a school/lab use case; it should not be considered hardened for high-risk or sensitive production environments.
+
+This app does not include analytics, ad trackers, or any intentional data collection of personal usage data.
+
+## License
+
+This project is released under **The Unlicense**.
+
+You may use, copy, modify, distribute, and sell this software, in source or binary form, for any purpose, with or without attribution.
+
+In jurisdictions where public domain dedication is not recognized, this project is provided under terms equivalent to an unrestricted permissive license.
+
+See the `LICENSE` file for the full text.
