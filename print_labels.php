@@ -4,8 +4,40 @@
  * Generates QR code labels for items with configurable formatting options
  */
 
-// Database file
-$dbFile = __DIR__ . '/gear_kiosk.db';
+// Load environment variables from .env file
+function loadEnv($path) {
+    if (!file_exists($path)) {
+        return false;
+    }
+    
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue; // Skip comments
+        }
+        
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+        
+        if (!array_key_exists($name, $_ENV)) {
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
+    return true;
+}
+
+// Load .env file
+loadEnv(__DIR__ . '/.env');
+
+// Get database credentials
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_NAME') ?: 'gear_dev';
+$dbUser = getenv('DB_USER') ?: 'root';
+$dbPass = getenv('DB_PASSWORD') ?: '';
+$dbCharset = getenv('DB_CHARSET') ?: 'utf8mb4';
 
 // Get parameters
 $teacherId = intval($_GET['teacher_id'] ?? 0);  // Teacher ID (required)
@@ -23,8 +55,13 @@ $size = max(40, min(200, $size)); // Between 40 and 200
 $cols = max(1, min(6, $cols));     // Between 1 and 6
 
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $dsn = "mysql:host=$dbHost;dbname=$dbName;charset=$dbCharset";
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ];
+    $db = new PDO($dsn, $dbUser, $dbPass, $options);
     
     // Fetch items
     if ($itemId) {
