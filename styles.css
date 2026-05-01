@@ -166,6 +166,15 @@ body {
     letter-spacing: 0.1em;
 }
 
+.header-version {
+    margin-top: 0.15rem;
+}
+
+#headerVersionLabel {
+    color: #64748b;
+    font-weight: 700;
+}
+
 .header-right {
     display: flex;
     align-items: center;
@@ -761,6 +770,16 @@ body {
 .admin-header p {
     font-size: 0.75rem;
     color: #94a3b8;
+}
+
+.admin-version {
+    margin-top: 0.25rem;
+    letter-spacing: 0.02em;
+}
+
+#adminVersionLabel {
+    color: #475569;
+    font-weight: 700;
 }
 
 .admin-actions {

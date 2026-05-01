@@ -1,5 +1,6 @@
 // Gear Kiosk Application - Multi-Tenant Version
 const API_URL = "api.php";
+const APP_VERSION = window.APP_VERSION || 'dev';
 
 // Mobile detection
 function isMobileDevice() {
@@ -68,7 +69,8 @@ function registerServiceWorker() {
     }
 
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch((error) => {
+        const swUrl = 'sw.js?v=' + encodeURIComponent(APP_VERSION);
+        navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' }).catch((error) => {
             console.error('Service worker registration failed:', error);
         });
     });

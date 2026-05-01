@@ -1,3 +1,7 @@
+<?php
+require __DIR__ . '/version-config.php';
+$APP_VERSION_PARAM = urlencode($APP_VERSION);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,9 +19,12 @@
     <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
     <link rel="shortcut icon" href="img/favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
-    <link rel="manifest" href="site.webmanifest">
+    <link rel="manifest" href="site.webmanifest?v=<?php echo $APP_VERSION_PARAM; ?>">
 
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=<?php echo $APP_VERSION_PARAM; ?>">
+    <script>
+        window.APP_VERSION = <?php echo json_encode($APP_VERSION); ?>;
+    </script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
     <script type="module" src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js"></script>
@@ -62,6 +69,7 @@
                 <div class="logo-text" id="logoText">
                     <h1>Gear Kiosk</h1>
                     <p id="teacherName">Cloud Session Active</p>
+                    <p class="header-version">Version <span id="headerVersionLabel"><?php echo htmlspecialchars($APP_VERSION, ENT_QUOTES, 'UTF-8'); ?></span></p>
                 </div>
                 <!-- QR Scanner Preview -->
                 <div id="qr-scanner-container" class="qr-scanner-container">
@@ -132,6 +140,7 @@
                     <div>
                         <h2>Teacher Panel</h2>
                         <p>Manage equipment and student access</p>
+                        <p class="admin-version">Version <span id="adminVersionLabel"><?php echo htmlspecialchars($APP_VERSION, ENT_QUOTES, 'UTF-8'); ?></span></p>
                     </div>
                     <div class="admin-actions">
                         <button id="printAllBtn" class="btn-print-all">
@@ -421,6 +430,6 @@
             setInterval(rotateTip, 10000); // Change every 10 seconds
         });
     </script>
-    <script src="app.js?v=2.0.2"></script>
+    <script src="app.js?v=<?php echo $APP_VERSION_PARAM; ?>"></script>
 </body>
 </html>

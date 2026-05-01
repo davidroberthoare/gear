@@ -1,10 +1,14 @@
-const CACHE_VERSION = 'gear-kiosk-v1';
+importScripts('./version.php');
+
+const SW_VERSION = self.APP_VERSION || 'dev';
+const CACHE_VERSION = 'gear-kiosk-' + SW_VERSION;
 const APP_SHELL = [
     './',
-    './index.html',
-    './styles.css',
-    './app.js?v=2.0.2',
-    './site.webmanifest',
+    './index.php',
+    './styles.css?v=' + SW_VERSION,
+    './app.js?v=' + SW_VERSION,
+    './site.webmanifest?v=' + SW_VERSION,
+    './version.php',
     './offline.html',
     './img/apple-touch-icon.png',
     './img/favicon-96x96.png',
@@ -42,11 +46,11 @@ self.addEventListener('fetch', (event) => {
             fetch(request)
                 .then((response) => {
                     const copy = response.clone();
-                    caches.open(CACHE_VERSION).then((cache) => cache.put('./index.html', copy));
+                    caches.open(CACHE_VERSION).then((cache) => cache.put('./index.php', copy));
                     return response;
                 })
                 .catch(async () => {
-                    const cachedIndex = await caches.match('./index.html');
+                    const cachedIndex = await caches.match('./index.php');
                     if (cachedIndex) {
                         return cachedIndex;
                     }
