@@ -163,9 +163,14 @@
                     <section class="admin-section">
                         <h3>
                             <i data-lucide="user"></i> Student Roster
-                            <button id="bulkImportBtn" class="btn-icon-small" title="Bulk Import from CSV/TSV" style="margin-left: auto;">
-                                <i data-lucide="clipboard"></i>
-                            </button>
+                            <div style="margin-left: auto; display: flex; gap: 0.25rem;">
+                                <button id="printRosterBtn" class="btn-icon-small print" title="Print Student Roster">
+                                    <i data-lucide="printer"></i>
+                                </button>
+                                <button id="bulkImportBtn" class="btn-icon-small" title="Bulk Import from CSV/TSV">
+                                    <i data-lucide="clipboard"></i>
+                                </button>
+                            </div>
                         </h3>
                         <div class="admin-form">
                             <input type="text" id="newStudentName" placeholder="Full Name" class="input-flex">

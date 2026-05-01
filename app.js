@@ -288,6 +288,7 @@ function setupEventListeners() {
     $('#deleteClassroomBtn').click(handleDeleteClassroom);
     
     // Bulk Import Modal
+    $('#printRosterBtn').click(printStudentRoster);
     $('#bulkImportBtn').click(showBulkImportModal);
     $('#bulkImportCancelBtn').click(closeBulkImportModal);
     $('#bulkImportSubmitBtn').click(handleBulkImport);
@@ -1431,6 +1432,124 @@ function printAll() {
         show_name: '1'
     });
     window.open(`print_labels.php?${params.toString()}`, '_blank');
+}
+
+// Print student roster (names + PIN codes)
+function printStudentRoster() {
+    if (!state.currentTeacher) {
+        return;
+    }
+
+    if (!state.students.length) {
+        alert('No students in roster to print.');
+        return;
+    }
+
+    const students = [...state.students].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+    );
+
+    const escapeHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const rows = students.map(student => `
+        <tr>
+            <td>${escapeHtml(student.name)}</td>
+            <td>${escapeHtml(student.pin)}</td>
+        </tr>
+    `).join('');
+
+    const teacherName = escapeHtml(state.currentTeacher.username || 'Classroom');
+    const printedAt = new Date().toLocaleString();
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Popup blocked. Please allow popups to print the roster.');
+        return;
+    }
+
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Roster - ${teacherName}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #0f172a;
+            margin: 24px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 24px;
+        }
+
+        .meta {
+            color: #475569;
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 700;
+        }
+
+        td:last-child,
+        th:last-child {
+            width: 140px;
+            font-family: monospace;
+            letter-spacing: 0.05em;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Student Roster</h1>
+    <div class="meta">Classroom: ${teacherName} | Printed: ${escapeHtml(printedAt)} | Total Students: ${students.length}</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Code</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
+    </table>
+</body>
+</html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
 }
 
 // Handle Change PIN
